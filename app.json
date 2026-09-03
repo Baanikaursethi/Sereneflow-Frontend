@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Serene Flow",
+    "slug": "sereneflow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0D0717",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D0717"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sereneflow.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Serene Flow uses your photo library so you can set a profile picture.",
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "android": {
+      "package": "com.sereneflow.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0D0717"
+      },
+      "permissions": ["READ_EXTERNAL_STORAGE"]
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    }
+  }
+}
