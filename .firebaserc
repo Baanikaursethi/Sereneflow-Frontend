@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "serene-flow-9e7e4",
+    "dev": "serene-flow-9e7e4",
+    "prod": "sereneflow-prod-bb1c6"
+  }
+}
