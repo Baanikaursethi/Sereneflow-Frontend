@@ -29,7 +29,6 @@ export const HomePage: React.FC<HomePageProps> = ({ user, onOpen }) => {
   const [drop, setDrop] = useState<MindDrop>(() => pickWeightedDrop(null));
   const [dropAnim, setDropAnim] = useState(true);
   const [orbPulse, setOrbPulse] = useState(false);
-  const spaces = store.get("sf_spaces", []);
   const journals = store.get(`sf_journal_${user.email}`, []);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -106,19 +105,7 @@ export const HomePage: React.FC<HomePageProps> = ({ user, onOpen }) => {
           <Text style={styles.cardArrow}>→</Text>
         </View>
         <Text style={styles.spacesSafe}>You're not alone. 🌸</Text>
-        {spaces.length > 0 ? (
-          <Text style={styles.spacesPreview}>
-            "{spaces[0].text.slice(0, 68)}
-            {spaces[0].text.length > 68 ? "…" : ""}"
-          </Text>
-        ) : (
-          <Text style={styles.spacesEmpty}>A quiet space to share and be heard.</Text>
-        )}
-        {spaces.length > 0 && (
-          <Text style={styles.cardMeta}>
-            {spaces.length} {spaces.length === 1 ? "voice" : "voices"} in this space
-          </Text>
-        )}
+        <Text style={styles.spacesEmpty}>A quiet space to share and be heard.</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -148,6 +135,5 @@ const styles = StyleSheet.create({
   pausePreview: { flexDirection: "row", alignItems: "center", gap: 16 },
   pausePreviewText: { fontFamily: FONT_SANS_LIGHT, color: "#CFA7FF", fontSize: 14 },
   spacesSafe: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 16, color: "#C4AFDE", marginBottom: 6 },
-  spacesPreview: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.6)", fontStyle: "italic" },
   spacesEmpty: { fontFamily: FONT_SERIF, fontSize: 13, color: "rgba(207,167,255,0.38)", fontStyle: "italic" },
 });

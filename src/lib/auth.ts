@@ -26,6 +26,7 @@ function normalizeUser(raw: any, token?: string): SFUser {
     logins: raw.logins ?? raw.loginCount ?? 0,
     lastActive: raw.lastActive ?? raw.lastActiveAt ?? new Date().toISOString(),
     id: raw.id ?? raw._id ?? raw.uid,
+    isVerified: raw.isVerified ?? false,
     token,
   };
 }
@@ -47,14 +48,16 @@ export async function signup(params: {
 }): Promise<SFUser> {
   const res = await api.post("/auth/signup", params, false);
   const { user, token } = extractUserAndToken(res);
-  setToken(token);
+  if (user.isVerified) setToken(token);
+  else setToken(null);
   return user;
 }
 
 export async function login(params: { email: string; password: string }): Promise<SFUser> {
   const res = await api.post("/auth/login", params, false);
   const { user, token } = extractUserAndToken(res);
-  setToken(token);
+  if (user.isVerified) setToken(token);
+  else setToken(null);
   return user;
 }
 
@@ -72,10 +75,31 @@ export async function forgotPassword(email: string): Promise<void> {
 }
 
 export async function resetPassword(params: {
-  token: string;
+  email: string;
+  code: string;
   newPassword: string;
 }): Promise<void> {
   await api.post("/auth/reset-password", params, false);
+}
+
+// Backend: POST /auth/verify-email { email, code } -> { message, token, user }
+export async function verifyEmail(params: { email: string; code: string }): Promise<SFUser> {
+  const res = await api.post("/auth/verify-email", params, false);
+  const token = res?.token;
+  const rawUser = res?.user;
+
+  if (!token || !rawUser) {
+    throw new Error("Email verification succeeded but no verified session was returned by the server.");
+  }
+
+  const user = normalizeUser(rawUser, token);
+  setToken(token);
+  return user;
+}
+
+// Backend: POST /auth/resend-verification { email } -> { message }
+export async function resendVerification(email: string): Promise<void> {
+  await api.post("/auth/resend-verification", { email }, false);
 }
 
 export function isAuthenticated(): boolean {

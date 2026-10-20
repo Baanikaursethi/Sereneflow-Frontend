@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { SFLogo } from "../components/SFLogo";
 import { Input, PillButton, TextButton } from "../components/UI";
-import { forgotPassword } from "../lib/auth";
+import { forgotPassword, resetPassword } from "../lib/auth";
 import { ApiError } from "../lib/api";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT } from "../lib/theme";
 
@@ -11,6 +11,14 @@ export const Forgot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Step 2 — enter the six-digit reset code from the email + a new password.
+  const [code, setCode] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [confPw, setConfPw] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [resetErr, setResetErr] = useState("");
+  const [resetDone, setResetDone] = useState(false);
 
   const go = async () => {
     setErr("");
@@ -29,6 +37,31 @@ export const Forgot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
   };
 
+  const submitReset = async () => {
+    setResetErr("");
+    if (!code.trim()) {
+      setResetErr("Please enter the reset code from your email.");
+      return;
+    }
+    if (newPw.length < 6) {
+      setResetErr("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPw !== confPw) {
+      setResetErr("Passwords do not match.");
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetPassword({ email, code: code.trim(), newPassword: newPw });
+      setResetting(false);
+      setResetDone(true);
+    } catch (e) {
+      setResetting(false);
+      setResetErr(e instanceof ApiError ? e.message : "Invalid or expired reset code.");
+    }
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.scrollContent}>
       <View style={styles.card}>
@@ -36,23 +69,42 @@ export const Forgot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <SFLogo size={44} glow />
         </View>
         <Text style={styles.title}>Reset Password</Text>
-        {sent ? (
+        {resetDone ? (
           <>
             <View style={styles.okBox}>
-              <Text style={styles.okText}>✓ Reset link sent. Please check your inbox.</Text>
+              <Text style={styles.okText}>✓ Password updated. You can now sign in.</Text>
             </View>
             <PillButton title="Back to Sign In" onPress={onBack} />
           </>
+        ) : sent ? (
+          <>
+            <View style={styles.okBox}>
+              <Text style={styles.okText}>✓ Reset email sent. Please check your inbox.</Text>
+            </View>
+            <Text style={styles.sub}>Enter the 6-digit reset code from the email and choose a new password.</Text>
+            {!!resetErr && (
+              <View style={styles.errBox}>
+                <Text style={styles.errText}>{resetErr}</Text>
+              </View>
+            )}
+            <Input placeholder="6-digit reset code" autoCapitalize="none" value={code} onChangeText={setCode} />
+            <View style={{ height: 10 }} />
+            <Input placeholder="New password" secureTextEntry value={newPw} onChangeText={setNewPw} />
+            <View style={{ height: 10 }} />
+            <Input placeholder="Confirm new password" secureTextEntry value={confPw} onChangeText={setConfPw} />
+            <PillButton title="Reset Password" onPress={submitReset} loading={resetting} style={{ marginTop: 6 }} />
+            <TextButton title="← Back" onPress={onBack} style={{ alignSelf: "center", marginTop: 12 }} />
+          </>
         ) : (
           <>
-            <Text style={styles.sub}>Enter your email to receive a reset link.</Text>
+            <Text style={styles.sub}>Enter your email to receive a reset code.</Text>
             {!!err && (
               <View style={styles.errBox}>
                 <Text style={styles.errText}>{err}</Text>
               </View>
             )}
             <Input placeholder="Email address" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
-            <PillButton title="Send Reset Link" onPress={go} loading={loading} style={{ marginTop: 6 }} />
+            <PillButton title="Send Reset Code" onPress={go} loading={loading} style={{ marginTop: 6 }} />
             <TextButton title="← Back" onPress={onBack} style={{ alignSelf: "center", marginTop: 12 }} />
           </>
         )}

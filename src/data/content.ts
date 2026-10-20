@@ -166,4 +166,4 @@ export const SOUNDS: SoundDef[] = [
 { id:"innerglow",label:"Inner Glow", icon:"☀️", description:"Warm healing frequencies" },
 ];
 
-export const CEO_EMAIL = "baanikaursethi27@gmail.com";
+export const CEO_EMAIL = "sereneflow27@gmail.com";

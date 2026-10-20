@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { Input, PillButton, SmButton } from "../components/UI";
 import { CeoBadge } from "../components/SFLogo";
 import { store } from "../lib/store";
@@ -96,12 +97,18 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         return; // graceful cancellation, matches original
       }
       const asset = result.assets[0];
-      if (!asset.base64) {
-        setAvError("Unable to save photo. Try a different image.");
+      // Resize and compress before converting to base64. Phone photos can be
+      // several MB; storing the raw base64 in Firestore can exceed its limit.
+      const manipulated = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 640 } }],
+        { compress: 0.65, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (!manipulated.base64) {
+        setAvError("Unable to process photo. Try a different image.");
         return;
       }
-      const mime = asset.mimeType || "image/jpeg";
-      const dataUri = `data:${mime};base64,${asset.base64}`;
+      const dataUri = `data:image/jpeg;base64,${manipulated.base64}`;
       setAvUploading(true);
       const updated = await updateMyAvatar(dataUri, user);
       const users = store.get("sf_users", {});
