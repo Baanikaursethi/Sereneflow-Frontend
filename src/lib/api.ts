@@ -8,10 +8,13 @@ import { store } from "./store";
 // verify exact DTOs), fixes are localized here rather than
 // spread across every screen.
 //
-// Deployed backend base URL. Routes are mounted directly
-// (paths like "/auth/login", "/moods", etc.).
+// Deployed backend base URL. All backend routes are mounted under
+// an /api prefix, added centrally below in apiRequest() so every
+// existing call site (paths like "/auth/login", "/moods", etc.)
+// automatically resolves to the correct /api/... path without
+// needing to be changed individually.
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "https://api-htehwa3qra-uc.a.run.app";
+  process.env.EXPO_PUBLIC_API_BASE_URL || "https://us-central1-serene-flow-9e7e4.cloudfunctions.net";
 
 const TOKEN_KEY = "sf_token";
 
@@ -53,9 +56,7 @@ export async function apiRequest<T = any>(path: string, opts: RequestOptions = {
 
   let res: Response;
   try {
-    const baseUrl = API_BASE_URL.replace(/\/+$/, "");
-    const cleanPath = path.startsWith("/") ? path : `/${path}`;
-    res = await fetch(`${baseUrl}${cleanPath}`, {
+    res = await fetch(`${API_BASE_URL}/api${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,

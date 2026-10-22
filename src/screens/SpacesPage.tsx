@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch, ActivityIndicator } from "react-native";
 import { TextButton, SmButton, PillButton } from "../components/UI";
 import { ModerationNotice } from "../components/ModerationNotice";
@@ -11,16 +11,16 @@ import { COLORS, FONT_SERIF, FONT_SANS_LIGHT, FONT_SANS_MED } from "../lib/theme
 import { SFUser, SpacesPost } from "../lib/types";
 
 const REACTIONS = [
-  { emoji: "❤️", label: "I'm here for you" },
-  { emoji: "😊", label: "I understand" },
-  { emoji: "🌸", label: "Stay strong" },
-  { emoji: "💛", label: "Sending care" },
-  { emoji: "🌈", label: "There's hope" },
+  { emoji: "â¤ï¸", label: "I'm here for you" },
+  { emoji: "ðŸ˜Š", label: "I understand" },
+  { emoji: "ðŸŒ¸", label: "Stay strong" },
+  { emoji: "ðŸ’›", label: "Sending care" },
+  { emoji: "ðŸŒˆ", label: "There's hope" },
 ];
 
 export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ user, onBack }) => {
   // Reactions/replies remain local-only mutations layered on top of the
-  // backend-loaded posts (unchanged from before — not part of this task's
+  // backend-loaded posts (unchanged from before â€” not part of this task's
   // Edit/Delete scope). `key` is still used for that local reaction/reply
   // overlay so existing behavior there is preserved byte-for-byte.
   const key = "sf_spaces";
@@ -83,7 +83,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
       const withAuthor: SpacesPost = {
         ...created,
         authorName: anon ? null : created.authorName ?? user.name,
-        authorEmail: anon ? null : created.authorEmail ?? user.email,
+        isOwner: true,
       };
       const all = [withAuthor, ...posts];
       store.set(key, all);
@@ -191,19 +191,19 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
   };
-  const isOwn = (p: SpacesPost) => !p.anonymous && !!p.authorEmail && p.authorEmail === user.email;
+  const isOwn = (p: SpacesPost) => p.isOwner === true;
   const canManage = (p: SpacesPost) => isOwn(p) || isCeo;
   const canEdit = (p: SpacesPost) => isOwn(p);
 
   return (
     <View style={styles.subpage}>
       <View style={styles.header}>
-        <TextButton title="← Back" onPress={onBack} />
+        <TextButton title="â† Back" onPress={onBack} />
         <Text style={styles.headerTitle}>Spaces</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.banner}>
-          <Text style={styles.bannerText}>🌸 A safe space to share. You're not alone.</Text>
+          <Text style={styles.bannerText}>ðŸŒ¸ A safe space to share. You're not alone.</Text>
         </View>
         <TouchableOpacity style={styles.newBtn} onPress={() => setWriting(!writing)}>
           <Text style={styles.newBtnText}>{writing ? "Cancel" : "+ Share something..."}</Text>
@@ -233,7 +233,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
               />
               <Text style={styles.anonLabel}>
                 {anon ? (
-                  <Text style={styles.anonBadge}>🎭 Anonymous — your name won't appear</Text>
+                  <Text style={styles.anonBadge}>ðŸŽ­ Anonymous â€” your name won't appear</Text>
                 ) : (
                   <>
                     Post as <Text style={{ color: "#CFA7FF" }}>{user.name}</Text>
@@ -274,14 +274,14 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
             <View key={p.id} style={styles.sCard}>
               <View style={styles.sCardHead}>
                 {p.anonymous !== false || p.authorName == null ? (
-                  <Text style={styles.sAnon}>🎭 Someone shared...</Text>
+                  <Text style={styles.sAnon}>ðŸŽ­ Someone shared...</Text>
                 ) : (
                   <View style={styles.sAuthorRow}>
                     <View style={styles.sAuthorAv}>
                       <Text style={styles.sAuthorAvText}>{p.authorName[0]?.toUpperCase()}</Text>
                     </View>
                     <Text style={styles.sAuthorName}>{p.authorName}</Text>
-                    {p.authorEmail === CEO_EMAIL && <CeoBadge size="small" />}
+                    {p.authorIsCeo === true && <CeoBadge size="small" />}
                   </View>
                 )}
                 {canManage(p) && (
@@ -290,13 +290,13 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                       style={styles.menuBtn}
                       onPress={() => setMenuOpen(menuOpen === p.id ? null : p.id)}
                     >
-                      <Text style={styles.menuBtnText}>⋯</Text>
+                      <Text style={styles.menuBtnText}>â‹¯</Text>
                     </TouchableOpacity>
                     {menuOpen === p.id && (
                       <View style={styles.menuDropdown}>
                         {canEdit(p) && (
                           <TouchableOpacity style={styles.menuItem} onPress={() => startEdit(p)}>
-                            <Text style={styles.menuItemText}>✎ Edit Post</Text>
+                            <Text style={styles.menuItemText}>âœŽ Edit Post</Text>
                           </TouchableOpacity>
                         )}
                         <TouchableOpacity
@@ -307,7 +307,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                           }}
                         >
                           <Text style={[styles.menuItemText, styles.menuItemDanger]}>
-                            🗑 {isCeo && !isOwn(p) ? "Remove Post" : "Delete Post"}
+                            ðŸ—‘ {isCeo && !isOwn(p) ? "Remove Post" : "Delete Post"}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -373,7 +373,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                     </TouchableOpacity>
                   ))}
                   <TouchableOpacity style={styles.reactBtn} onPress={() => setReplyTo(replyTo === p.id ? null : p.id)}>
-                    <Text style={styles.reactLabel}>💬 Reply</Text>
+                    <Text style={styles.reactLabel}>ðŸ’¬ Reply</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -557,3 +557,4 @@ const styles = StyleSheet.create({
   reply: { backgroundColor: "rgba(207,167,255,0.035)", borderRadius: 10, padding: 10 },
   replyText: { fontFamily: FONT_SANS_LIGHT, color: "#C4AFDE", fontSize: 13, lineHeight: 20 },
 });
+

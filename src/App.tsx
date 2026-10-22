@@ -7,6 +7,7 @@ import { Jost_300Light, Jost_400Regular, Jost_500Medium } from "@expo-google-fon
 import { Splash } from "./screens/Splash";
 import { Login } from "./screens/Login";
 import { Signup } from "./screens/Signup";
+import { Verify } from "./screens/Verify";
 import { Forgot } from "./screens/Forgot";
 import { Terms, Privacy } from "./screens/Legal";
 import { Main } from "./screens/Main";
@@ -40,8 +41,12 @@ const initialNav: NavState = {
 export default function App() {
   const [navState, setNavState] = useState<NavState>(initialNav);
   const [ready, setReady] = useState(false);
+  // Holds the just-signed-up user while they're on the Verify screen —
+  // separate from navState.user so verify->main only happens after
+  // the code is confirmed.
+  const [pendingUser, setPendingUser] = useState<SFUser | null>(null);
 
-  const [fontsLoaded, fontError] = useFonts({
+  const [fontsLoaded] = useFonts({
     CormorantGaramond_400Regular,
     CormorantGaramond_600SemiBold,
     Jost_300Light,
@@ -124,7 +129,7 @@ export default function App() {
     return () => sub.remove();
   }, [navState, goBack]);
 
-  if ((!fontsLoaded && !fontError) || !ready) {
+  if (!fontsLoaded || !ready) {
     return <View style={styles.loadingScreen} />;
   }
 
@@ -135,7 +140,14 @@ export default function App() {
         {navState.screen === "splash" && <Splash />}
         {navState.screen === "login" && (
           <Login
-            onLogin={login}
+            onLogin={(u) => {
+              if (u.isVerified) {
+                login(u);
+              } else {
+                setPendingUser(u);
+                pushNav({ screen: "verify", prevScreen: "login" });
+              }
+            }}
             onSignup={() => pushNav({ screen: "signup" })}
             onForgot={() => pushNav({ screen: "forgot" })}
             onTerms={() => pushNav({ screen: "terms", prevScreen: "login" })}
@@ -144,10 +156,30 @@ export default function App() {
         )}
         {navState.screen === "signup" && (
           <Signup
-            onSignup={login}
+            onSignup={(u) => {
+              if (u.isVerified) {
+                login(u);
+              } else {
+                setPendingUser(u);
+                pushNav({ screen: "verify", prevScreen: "signup" });
+              }
+            }}
             onLogin={() => pushNav({ screen: "login" })}
             onTerms={() => pushNav({ screen: "terms", prevScreen: "signup" })}
             onPrivacy={() => pushNav({ screen: "privacy", prevScreen: "signup" })}
+          />
+        )}
+        {navState.screen === "verify" && pendingUser && (
+          <Verify
+            email={pendingUser.email}
+            onVerified={(verifiedUser) => {
+              setPendingUser(null);
+              login(verifiedUser);
+            }}
+            onBack={() => {
+              setPendingUser(null);
+              pushNav({ screen: "login" });
+            }}
           />
         )}
         {navState.screen === "forgot" && <Forgot onBack={goBack} />}

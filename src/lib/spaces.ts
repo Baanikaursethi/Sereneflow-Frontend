@@ -1,31 +1,32 @@
 import { api, ApiError } from "./api";
-import { SpacesPost } from "./types";
+import { SpacesPost, SpacesReply } from "./types";
 
 // ============================================================
-// SPACES API — backend wiring for post creation, loading, edit,
-// and delete. Reactions and replies remain on local storage
-// (unchanged), per task scope.
+// SPACES API — backend wiring for posts, replies, edit/delete,
+// and reactions. Reactions are stored and counted server-side
+// (POST /spaces/posts/:id/reactions toggles the calling user's
+// reaction and returns the authoritative counts), so they stay
+// correct for everyone after a refresh.
 //
-// NOTE: Edit/Delete require a real backend-issued post ID to
-// target, which only exists if the post was also created via the
-// backend (POST /spaces/posts) rather than purely locally. So
-// create+load are wired here too, even though the task described
-// them as "already working" / not to be touched — a purely local
-// post has no ID the backend recognizes, so Edit/Delete against it
-// would silently 404. This was flagged and confirmed before making
-// this change.
-//
-// UNVERIFIED ASSUMPTIONS (no backend source, only the README's
-// endpoint list):
-// - POST /spaces/posts body: { text, anonymous } -> returns created
-//   post (or { data: post }).
-// - GET /spaces/posts -> array of posts (or { data: [...] }).
-// - PATCH /spaces/posts/:id body: { text } -> updated post or 200/204.
-// - DELETE /spaces/posts/:id -> 200/204.
-// - Response post fields normalized defensively below (id/_id,
-//   text/content, time/createdAt, authorName/author, authorEmail/
-//   author_email, anonymous/isAnonymous, reactions, replies).
+// The backend also decides `isOwner` / `authorIsCeo` per viewer
+// and never sends author email/uid, so anonymous posts really
+// stay anonymous and this file has nothing to compare against
+// user.email/user.id — it just relays what the server says.
 // ============================================================
+
+function normalizeReply(raw: any): SpacesReply {
+  return {
+    id: raw.id ?? raw._id,
+    text: raw.text ?? raw.content ?? "",
+    time: raw.time ?? raw.createdAt ?? raw.timestamp ?? new Date().toISOString(),
+    anonymous: raw.anonymous ?? raw.isAnonymous ?? false,
+    authorName: raw.authorName ?? raw.author ?? null,
+    authorAvatar: raw.authorAvatar ?? raw.avatar ?? raw.authorPhotoURL ?? null,
+    authorIsCeo: !!raw.authorIsCeo,
+    isOwner: !!raw.isOwner,
+    edited: raw.edited ?? raw.editedAt ?? undefined,
+  };
+}
 
 function normalizePost(raw: any): SpacesPost {
   return {
@@ -34,9 +35,12 @@ function normalizePost(raw: any): SpacesPost {
     time: raw.time ?? raw.createdAt ?? raw.timestamp ?? new Date().toISOString(),
     anonymous: raw.anonymous ?? raw.isAnonymous ?? false,
     authorName: raw.authorName ?? raw.author ?? null,
-    authorEmail: raw.authorEmail ?? raw.author_email ?? raw.authorId ?? null,
+    authorAvatar: raw.authorAvatar ?? raw.avatar ?? raw.authorPhotoURL ?? null,
+    authorIsCeo: !!raw.authorIsCeo,
+    isOwner: !!raw.isOwner,
     reactions: raw.reactions ?? {},
-    replies: raw.replies ?? [],
+    myReactions: Array.isArray(raw.myReactions) ? raw.myReactions : [],
+    replies: Array.isArray(raw.replies) ? raw.replies.map(normalizeReply) : [],
     edited: raw.edited ?? raw.editedAt ?? undefined,
   };
 }
@@ -56,8 +60,9 @@ export async function createSpacesPost(params: {
   return normalizePost(raw);
 }
 
-export async function editSpacesPost(postId: string, text: string): Promise<void> {
-  await api.patch(`/spaces/posts/${postId}`, { text });
+export async function editSpacesPost(postId: string, text: string): Promise<SpacesPost> {
+  const res = await api.patch(`/spaces/posts/${postId}`, { text });
+  return normalizePost(res?.data ?? res);
 }
 
 export async function deleteSpacesPost(postId: string): Promise<void> {
@@ -65,3 +70,35 @@ export async function deleteSpacesPost(postId: string): Promise<void> {
 }
 
 export { ApiError };
+
+export async function createSpacesReply(postId: string, params: { text: string; anonymous?: boolean }): Promise<SpacesReply> {
+  const res = await api.post(`/spaces/posts/${postId}/replies`, params);
+  return normalizeReply(res?.data ?? res);
+}
+
+export async function editSpacesReply(postId: string, replyId: string, text: string): Promise<SpacesReply> {
+  const res = await api.patch(`/spaces/posts/${postId}/replies/${replyId}`, { text });
+  return normalizeReply(res?.data ?? res);
+}
+
+export async function deleteSpacesReply(postId: string, replyId: string): Promise<void> {
+  await api.delete(`/spaces/posts/${postId}/replies/${replyId}`);
+}
+
+/**
+ * Toggles the current user's reaction of `reactionType` on a post.
+ * Sending a reaction the user already holds removes it. The backend is the
+ * source of truth: it returns the up-to-date counts and the viewer's own
+ * reaction set for this post, both stored server-side.
+ */
+export async function toggleSpacesReaction(
+  postId: string,
+  reactionType: string,
+): Promise<{ reactions: Record<string, number>; myReactions: string[] }> {
+  const res = await api.post(`/spaces/posts/${postId}/reactions`, { reactionType });
+  const raw = res?.data ?? res;
+  return {
+    reactions: raw?.reactions ?? {},
+    myReactions: Array.isArray(raw?.myReactions) ? raw.myReactions : [],
+  };
+}

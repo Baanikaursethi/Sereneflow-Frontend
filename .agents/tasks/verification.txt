@@ -1,0 +1,43 @@
+SereneFlow v7 — Review Finding Fixes — Verification
+=====================================================
+Date: second iteration (review.json findings addressed)
+
+TSC Results
+-----------
+Frontend (sereneflow-fixed-v7): PASS — no errors (npx tsc --noEmit)
+Backend  (serene-flow-backend-fixed-v7): PASS — no errors (npx tsc --noEmit)
+
+Review Findings Addressed
+--------------------------
+
+1. [FIXED] leftover-debug-log (blocking)
+   File: src/screens/SpacesPage.tsx line ~398
+   Change: Removed console.log("DELETE BUTTON CLICKED", p.id) from the
+   delete confirmation onPress handler. The handler now calls deletePost(p.id)
+   directly. Verified with Select-String — no match for "DELETE BUTTON CLICKED".
+
+2. [FIXED] toggle-reaction-my-reactions-empty (functional)
+   File: src/spaces/spaces.service.ts
+   Change: Replaced the simple increment-only toggleReaction with a proper
+   per-user tracking implementation:
+   - Introduced two private helpers: reactionCountsFromUsers() and
+     reactionsForUser() that mirror v6's reactions.util.ts logic inline.
+   - toggleReaction now reads/writes a reactionUsers: { [emoji]: string[] }
+     map alongside the counts. Toggling adds or removes the user's email
+     from that list. myReactions is computed from the map and returned.
+   - decoratePost now also includes myReactions in every post returned by
+     getPosts(), so the active-reaction highlight is correct on initial load.
+   - Backward-compatible: posts that only have reactions counts (no
+     reactionUsers) will start fresh; the counts field is preserved as-is
+     until the first toggle, after which reactionUsers becomes the source
+     of truth and counts are derived from it.
+
+3. [FIXED] auth-guard-ceo-email-case (latent-risk)
+   File: src/common/guards/auth.guard.ts
+   Change: Both the Firebase-auth path and the local-JWT path now lowercase
+   both operands before comparing:
+     (decodedToken.email || '').toLowerCase() === ceoEmail
+     (decoded.email     || '').toLowerCase() === ceoEmail
+   where ceoEmail is already .toLowerCase()'d when read from ConfigService.
+   This ensures a Firebase token with a mixed-case email (e.g.
+   "SereneFlow27@gmail.com") still receives role: 'ceo' correctly.
