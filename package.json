@@ -14,7 +14,7 @@
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.2.3",
     "@expo-google-fonts/jost": "^0.2.3",
-    "@expo/metro-runtime": "~3.2.3",
+    "@expo/metro-runtime": "~3.2.1",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/slider": "4.5.2",
     "expo": "~51.0.0",
@@ -22,7 +22,7 @@
     "expo-file-system": "~17.0.1",
     "expo-font": "~12.0.9",
     "expo-image-manipulator": "~12.0.5",
-    "expo-image-picker": "~15.0.7",
+    "expo-image-picker": "~15.1.0",
     "expo-linear-gradient": "~13.0.2",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
@@ -34,9 +34,9 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@types/node": "18.19.130",
     "@types/react": "~18.2.79",
     "typescript": "~5.3.3"
   },
   "private": true
 }
-

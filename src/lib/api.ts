@@ -56,7 +56,7 @@ export async function apiRequest<T = any>(path: string, opts: RequestOptions = {
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE_URL}/api${path}`, {
+    res = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
