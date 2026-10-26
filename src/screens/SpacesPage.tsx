@@ -1,29 +1,25 @@
-﻿import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch, ActivityIndicator } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch, ActivityIndicator, Image } from "react-native";
 import { TextButton, SmButton, PillButton } from "../components/UI";
 import { ModerationNotice } from "../components/ModerationNotice";
 import { CeoBadge } from "../components/SFLogo";
 import { moderateSpacesPost, ModerationReason } from "../lib/moderation";
-import { store } from "../lib/store";
-import { fetchSpacesPosts, createSpacesPost, editSpacesPost, deleteSpacesPost, ApiError } from "../lib/spaces";
+import { fetchSpacesPosts, createSpacesPost, createSpacesReply, editSpacesPost, editSpacesReply, deleteSpacesPost, deleteSpacesReply, toggleSpacesReaction, ApiError } from "../lib/spaces";
 import { CEO_EMAIL } from "../data/content";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT, FONT_SANS_MED } from "../lib/theme";
 import { SFUser, SpacesPost } from "../lib/types";
 
+// These 5 reactions are unchanged from before — only their storage moved
+// server-side (see lib/spaces.ts) so counts stay correct after a refresh.
 const REACTIONS = [
-  { emoji: "â¤ï¸", label: "I'm here for you" },
-  { emoji: "ðŸ˜Š", label: "I understand" },
-  { emoji: "ðŸŒ¸", label: "Stay strong" },
-  { emoji: "ðŸ’›", label: "Sending care" },
-  { emoji: "ðŸŒˆ", label: "There's hope" },
+  { emoji: "❤️", label: "I'm here for you" },
+  { emoji: "😊", label: "I understand" },
+  { emoji: "🌸", label: "Stay strong" },
+  { emoji: "💛", label: "Sending care" },
+  { emoji: "🌈", label: "There's hope" },
 ];
 
 export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ user, onBack }) => {
-  // Reactions/replies remain local-only mutations layered on top of the
-  // backend-loaded posts (unchanged from before â€” not part of this task's
-  // Edit/Delete scope). `key` is still used for that local reaction/reply
-  // overlay so existing behavior there is preserved byte-for-byte.
-  const key = "sf_spaces";
   const [posts, setPosts] = useState<SpacesPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
@@ -33,6 +29,12 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
   const [posting, setPosting] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [replyAnon, setReplyAnon] = useState(false);
+  const [replyMenuOpen, setReplyMenuOpen] = useState<string | null>(null);
+  const [replyEditId, setReplyEditId] = useState<string | null>(null);
+  const [replyEditText, setReplyEditText] = useState("");
+  const [replySaving, setReplySaving] = useState(false);
+  const [replyDeleting, setReplyDeleting] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -41,22 +43,20 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
   const [deleting, setDeleting] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState("");
   const [blocked, setBlocked] = useState<ModerationReason | null>(null);
+  // Which post+emoji is currently being toggled, so a double-tap can't fire twice.
+  const [reactingKey, setReactingKey] = useState<string | null>(null);
+  // Only gates which buttons the client shows — the backend enforces the real
+  // rule (moderation by sereneflow27@gmail.com only) independent of this.
   const isCeo = user.email === CEO_EMAIL;
 
   const loadPosts = async () => {
     setLoading(true);
     setLoadErr("");
     try {
+      // Always the server's current view: correct reaction counts and
+      // up-to-date author name/avatar for everyone, every time.
       const backendPosts = await fetchSpacesPosts();
-      // Merge in the local reaction/reply overlay so those still-local
-      // features keep working unchanged for posts the backend returns.
-      const overlay: SpacesPost[] = store.get(key, []);
-      const merged = backendPosts.map((p) => {
-        const local = overlay.find((o) => o.id === p.id);
-        return local ? { ...p, reactions: local.reactions, replies: local.replies } : p;
-      });
-      store.set(key, merged);
-      setPosts(merged);
+      setPosts(backendPosts);
     } catch (e) {
       setLoadErr("Couldn't load posts. Pull to refresh or try again.");
     } finally {
@@ -80,14 +80,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     setActionErr("");
     try {
       const created = await createSpacesPost({ text, anonymous: anon });
-      const withAuthor: SpacesPost = {
-        ...created,
-        authorName: anon ? null : created.authorName ?? user.name,
-        isOwner: true,
-      };
-      const all = [withAuthor, ...posts];
-      store.set(key, all);
-      setPosts(all);
+      setPosts((all) => [created, ...all]);
       setText("");
       setWriting(false);
       setAnon(false);
@@ -99,28 +92,77 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     }
   };
 
-  const react = (pid: string, emoji: string) => {
-    const all: SpacesPost[] = store.get(key, []);
-    const p = all.find((x) => x.id === pid);
-    if (!p) return;
-    p.reactions = p.reactions || {};
-    if (p.reactions[emoji]) delete p.reactions[emoji];
-    else p.reactions[emoji] = 1;
-    store.set(key, all);
-    setPosts([...all]);
+  // Toggling a reaction is stored server-side: clicking your own reaction
+  // again removes just yours, a different user adding the same reaction
+  // increases the count, and the result is correct after a refresh.
+  const react = async (pid: string, emoji: string) => {
+    const reactKey = pid + "|" + emoji;
+    if (reactingKey) return;
+    setReactingKey(reactKey);
+    setActionErr("");
+    try {
+      const { reactions, myReactions } = await toggleSpacesReaction(pid, emoji);
+      setPosts((all) => all.map((p) => (p.id === pid ? { ...p, reactions, myReactions } : p)));
+    } catch (e) {
+      setActionErr(e instanceof ApiError ? e.message : "Couldn't save your reaction. Please try again.");
+    } finally {
+      setReactingKey(null);
+    }
   };
 
-  const reply = (pid: string) => {
+  const reply = async (pid: string) => {
     if (!replyText.trim()) return;
-    const all: SpacesPost[] = store.get(key, []);
-    const p = all.find((x) => x.id === pid);
-    if (!p) return;
-    p.replies = p.replies || [];
-    p.replies.push({ id: Date.now().toString(), text: replyText, time: new Date().toISOString() });
-    store.set(key, all);
-    setPosts([...all]);
-    setReplyText("");
-    setReplyTo(null);
+    setActionErr("");
+    try {
+      const created = await createSpacesReply(pid, { text: replyText.trim(), anonymous: replyAnon });
+      setPosts((all) => all.map((p) => (p.id === pid ? { ...p, replies: [...(p.replies || []), created] } : p)));
+      setReplyText("");
+      setReplyAnon(false);
+      setReplyTo(null);
+    } catch (e) {
+      setActionErr(e instanceof ApiError ? e.message : "Couldn't post your reply. Please try again.");
+    }
+  };
+
+  // Ownership is decided by the backend (it knows the true author even for
+  // anonymous content) and simply relayed here.
+  const isOwnReply = (r: any) => !!r.isOwner;
+
+  const startReplyEdit = (r: any) => {
+    setReplyEditId(r.id);
+    setReplyEditText(r.text);
+    setReplyMenuOpen(null);
+  };
+
+  const saveReplyEdit = async (postId: string) => {
+    if (!replyEditId || !replyEditText.trim() || replySaving) return;
+    setReplySaving(true);
+    setActionErr("");
+    try {
+      const updated = await editSpacesReply(postId, replyEditId, replyEditText.trim());
+      setPosts((all) => all.map((p) => {
+        if (p.id !== postId) return p;
+        const replies = (p.replies || []).map((r) => (r.id === replyEditId ? { ...r, ...updated } : r));
+        return { ...p, replies };
+      }));
+      setReplyEditId(null);
+      setReplyEditText("");
+    } catch (e) {
+      setActionErr(e instanceof ApiError ? e.message : "Couldn't save your reply edit. Please try again.");
+    } finally { setReplySaving(false); }
+  };
+
+  const removeReply = async (postId: string, replyId: string) => {
+    if (replyDeleting) return;
+    setReplyDeleting(replyId);
+    setActionErr("");
+    try {
+      await deleteSpacesReply(postId, replyId);
+      setPosts((all) => all.map((p) => (p.id === postId ? { ...p, replies: (p.replies || []).filter((r) => r.id !== replyId) } : p)));
+      setReplyMenuOpen(null);
+    } catch (e) {
+      setActionErr(e instanceof ApiError ? e.message : "Couldn't delete this reply. Please try again.");
+    } finally { setReplyDeleting(null); }
   };
 
   const startEdit = (p: SpacesPost) => {
@@ -139,15 +181,8 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     setEditSaving(true);
     setActionErr("");
     try {
-      await editSpacesPost(editId, editText);
-      const all: SpacesPost[] = store.get(key, []);
-      const p = all.find((x) => x.id === editId);
-      if (p) {
-        p.text = editText;
-        p.edited = new Date().toISOString();
-        store.set(key, all);
-        setPosts([...all]);
-      }
+      const updated = await editSpacesPost(editId, editText);
+      setPosts((all) => all.map((p) => (p.id === editId ? { ...p, ...updated } : p)));
       setEditId(null);
       setEditText("");
       setBlocked(null);
@@ -170,9 +205,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     try {
       await deleteSpacesPost(pid);
       // UI updates only after successful deletion (per task requirement).
-      const all = store.get(key, []).filter((x: SpacesPost) => x.id !== pid);
-      store.set(key, all);
-      setPosts(all);
+      setPosts((all) => all.filter((x) => x.id !== pid));
       setDelConf(null);
       setMenuOpen(null);
     } catch (e) {
@@ -191,19 +224,21 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
   };
-  const isOwn = (p: SpacesPost) => p.isOwner === true;
+  // Ownership is decided by the backend and simply relayed here — this keeps
+  // anonymous posts genuinely anonymous (the client never sees author email/uid).
+  const isOwn = (p: SpacesPost) => !!p.isOwner;
   const canManage = (p: SpacesPost) => isOwn(p) || isCeo;
   const canEdit = (p: SpacesPost) => isOwn(p);
 
   return (
     <View style={styles.subpage}>
       <View style={styles.header}>
-        <TextButton title="â† Back" onPress={onBack} />
+        <TextButton title="← Back" onPress={onBack} />
         <Text style={styles.headerTitle}>Spaces</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.banner}>
-          <Text style={styles.bannerText}>ðŸŒ¸ A safe space to share. You're not alone.</Text>
+          <Text style={styles.bannerText}>🌸 A safe space to share. You're not alone.</Text>
         </View>
         <TouchableOpacity style={styles.newBtn} onPress={() => setWriting(!writing)}>
           <Text style={styles.newBtnText}>{writing ? "Cancel" : "+ Share something..."}</Text>
@@ -233,7 +268,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
               />
               <Text style={styles.anonLabel}>
                 {anon ? (
-                  <Text style={styles.anonBadge}>ðŸŽ­ Anonymous â€” your name won't appear</Text>
+                  <Text style={styles.anonBadge}>🎭 Anonymous — your name won't appear</Text>
                 ) : (
                   <>
                     Post as <Text style={{ color: "#CFA7FF" }}>{user.name}</Text>
@@ -273,15 +308,19 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
           {posts.map((p) => (
             <View key={p.id} style={styles.sCard}>
               <View style={styles.sCardHead}>
-                {p.anonymous !== false || p.authorName == null ? (
-                  <Text style={styles.sAnon}>ðŸŽ­ Someone shared...</Text>
+                {p.anonymous ? (
+                  <Text style={styles.sAnon}>🎭 Someone shared...</Text>
                 ) : (
                   <View style={styles.sAuthorRow}>
                     <View style={styles.sAuthorAv}>
-                      <Text style={styles.sAuthorAvText}>{p.authorName[0]?.toUpperCase()}</Text>
+                      {p.authorAvatar ? (
+                        <Image source={{ uri: p.authorAvatar }} style={styles.sAuthorImage} />
+                      ) : (
+                        <Text style={styles.sAuthorAvText}>{(p.authorName || "?")[0]?.toUpperCase()}</Text>
+                      )}
                     </View>
-                    <Text style={styles.sAuthorName}>{p.authorName}</Text>
-                    {p.authorIsCeo === true && <CeoBadge size="small" />}
+                    <Text style={styles.sAuthorName}>{p.authorName || "User"}</Text>
+                    {p.authorIsCeo && <CeoBadge size="small" />}
                   </View>
                 )}
                 {canManage(p) && (
@@ -290,13 +329,13 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                       style={styles.menuBtn}
                       onPress={() => setMenuOpen(menuOpen === p.id ? null : p.id)}
                     >
-                      <Text style={styles.menuBtnText}>â‹¯</Text>
+                      <Text style={styles.menuBtnText}>⋯</Text>
                     </TouchableOpacity>
                     {menuOpen === p.id && (
                       <View style={styles.menuDropdown}>
                         {canEdit(p) && (
                           <TouchableOpacity style={styles.menuItem} onPress={() => startEdit(p)}>
-                            <Text style={styles.menuItemText}>âœŽ Edit Post</Text>
+                            <Text style={styles.menuItemText}>✎ Edit Post</Text>
                           </TouchableOpacity>
                         )}
                         <TouchableOpacity
@@ -307,7 +346,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                           }}
                         >
                           <Text style={[styles.menuItemText, styles.menuItemDanger]}>
-                            ðŸ—‘ {isCeo && !isOwn(p) ? "Remove Post" : "Delete Post"}
+                            🗑 {isCeo && !isOwn(p) ? "Remove Post" : "Delete Post"}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -365,15 +404,24 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
 
               {editId !== p.id && (
                 <View style={styles.reactions}>
-                  {REACTIONS.map((r) => (
-                    <TouchableOpacity key={r.emoji} style={styles.reactBtn} onPress={() => react(p.id, r.emoji)}>
-                      <Text style={styles.reactEmoji}>{r.emoji}</Text>
-                      <Text style={styles.reactLabel}>{r.label}</Text>
-                      {p.reactions?.[r.emoji] > 0 && <Text style={styles.reactCount}>{p.reactions[r.emoji]}</Text>}
-                    </TouchableOpacity>
-                  ))}
+                  {REACTIONS.map((r) => {
+                    const mine = !!p.myReactions?.includes(r.emoji);
+                    const busy = reactingKey === p.id + "|" + r.emoji;
+                    return (
+                      <TouchableOpacity
+                        key={r.emoji}
+                        style={[styles.reactBtn, mine && styles.reactBtnActive]}
+                        onPress={() => react(p.id, r.emoji)}
+                        disabled={busy}
+                      >
+                        <Text style={styles.reactEmoji}>{r.emoji}</Text>
+                        <Text style={styles.reactLabel}>{r.label}</Text>
+                        {p.reactions?.[r.emoji] > 0 && <Text style={styles.reactCount}>{p.reactions[r.emoji]}</Text>}
+                      </TouchableOpacity>
+                    );
+                  })}
                   <TouchableOpacity style={styles.reactBtn} onPress={() => setReplyTo(replyTo === p.id ? null : p.id)}>
-                    <Text style={styles.reactLabel}>ðŸ’¬ Reply</Text>
+                    <Text style={styles.reactLabel}>💬 Reply</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -382,8 +430,52 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                 <View style={styles.repliesWrap}>
                   {p.replies.map((r) => (
                     <View key={r.id} style={styles.reply}>
-                      <Text style={styles.replyText}>{r.text}</Text>
-                      <Text style={styles.sTime}>{fmt(r.time)}</Text>
+                      {r.anonymous ? (
+                        <Text style={styles.sAnon}>🎭 Someone shared...</Text>
+                      ) : (
+                        <View style={styles.sAuthorRow}>
+                          <View style={styles.sAuthorAv}>
+                            {r.authorAvatar ? (
+                              <Image source={{ uri: r.authorAvatar }} style={styles.sAuthorImage} />
+                            ) : (
+                              <Text style={styles.sAuthorAvText}>{(r.authorName || "?")[0]?.toUpperCase()}</Text>
+                            )}
+                          </View>
+                          <Text style={styles.sAuthorName}>{r.authorName || "User"}</Text>
+                          {r.authorIsCeo && <CeoBadge size="small" />}
+                        </View>
+                      )}
+                      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                        {replyEditId === r.id ? (
+                          <View style={{ flex: 1 }}>
+                            <TextInput style={[styles.textarea, { minHeight: 44 }]} value={replyEditText} onChangeText={setReplyEditText} multiline />
+                            <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                              <SmButton title="Save" onPress={() => saveReplyEdit(p.id)} />
+                              <SmButton title="Cancel" onPress={() => { setReplyEditId(null); setReplyEditText(""); }} />
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.replyText}>{r.text}</Text>
+                            <Text style={styles.sTime}>{fmt(r.edited || r.time)}{r.edited ? " (edited)" : ""}</Text>
+                          </View>
+                        )}
+                        {(isOwnReply(r) || isCeo) && replyEditId !== r.id && (
+                          <View>
+                            <TouchableOpacity style={styles.menuBtn} onPress={() => setReplyMenuOpen(replyMenuOpen === r.id ? null : r.id)}>
+                              <Text style={styles.menuBtnText}>⋯</Text>
+                            </TouchableOpacity>
+                            {replyMenuOpen === r.id && (
+                              <View style={styles.menuDropdown}>
+                                {isOwnReply(r) && <TouchableOpacity style={styles.menuItem} onPress={() => startReplyEdit(r)}><Text style={styles.menuItemText}>✎ Edit Reply</Text></TouchableOpacity>}
+                                <TouchableOpacity style={styles.menuItem} onPress={() => removeReply(p.id, r.id)}>
+                                  <Text style={[styles.menuItemText, styles.menuItemDanger]}>🗑 Delete Reply</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -398,6 +490,21 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                     value={replyText}
                     onChangeText={setReplyText}
                   />
+                  <TouchableOpacity style={styles.anonToggle} onPress={() => setReplyAnon(!replyAnon)} activeOpacity={0.8}>
+                    <Switch
+                      value={replyAnon}
+                      onValueChange={setReplyAnon}
+                      trackColor={{ false: "rgba(207,167,255,0.12)", true: "rgba(124,92,191,0.45)" }}
+                      thumbColor={replyAnon ? "#CFA7FF" : "rgba(207,167,255,0.4)"}
+                    />
+                    <Text style={styles.anonLabel}>
+                      {replyAnon ? (
+                        <Text style={styles.anonBadge}>🎭 Anonymous — your name won't appear</Text>
+                      ) : (
+                        <>Reply as <Text style={{ color: "#CFA7FF" }}>{user.name}</Text></>
+                      )}
+                    </Text>
+                  </TouchableOpacity>
                   <SmButton title="Send" onPress={() => reply(p.id)} />
                 </View>
               )}
@@ -489,6 +596,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  sAuthorImage: { width: 30, height: 30, borderRadius: 15 },
   sAuthorAvText: { fontSize: 11, color: "#E8D8FF", fontFamily: FONT_SANS_MED },
   sAuthorName: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.55)" },
   menuBtn: { paddingVertical: 2, paddingHorizontal: 8 },
@@ -532,6 +640,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
+  reactBtnActive: {
+    backgroundColor: "rgba(207,167,255,0.16)",
+    borderColor: "rgba(207,167,255,0.4)",
+  },
   reactEmoji: { fontSize: 15 },
   // NOTE: original .react-btn span had opacity:0.8 applied to a dim
   // rgba(207,167,255,0.55) color for the reaction count, which made the
@@ -557,4 +669,3 @@ const styles = StyleSheet.create({
   reply: { backgroundColor: "rgba(207,167,255,0.035)", borderRadius: 10, padding: 10 },
   replyText: { fontFamily: FONT_SANS_LIGHT, color: "#C4AFDE", fontSize: 13, lineHeight: 20 },
 });
-
