@@ -14,7 +14,7 @@ import { store } from "./store";
 // automatically resolves to the correct /api/... path without
 // needing to be changed individually.
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || "https://us-central1-serene-flow-9e7e4.cloudfunctions.net";
+  process.env.EXPO_PUBLIC_API_BASE_URL || "https://api-ysdoljkngq-uc.a.run.app";
 
 const TOKEN_KEY = "sf_token";
 
