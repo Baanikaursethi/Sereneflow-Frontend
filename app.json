@@ -28,8 +28,8 @@
     "android": {
       "package": "com.serene_flow.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#0D0717"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2D1B4E"
       },
       "permissions": [
         "READ_EXTERNAL_STORAGE"
