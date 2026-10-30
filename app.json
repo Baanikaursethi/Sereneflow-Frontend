@@ -2,7 +2,7 @@
   "expo": {
     "name": "Serene Flow",
     "slug": "sereneflow",
-    "version": "1.0.0",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -34,7 +34,7 @@
       "permissions": [
         "READ_EXTERNAL_STORAGE"
       ],
-      "versionCode": 2
+      "versionCode": 11
     },
     "web": {
       "favicon": "./assets/icon.png",

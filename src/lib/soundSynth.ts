@@ -324,12 +324,20 @@ function base64Encode(str: string): string {
 
 const cache = new Map<SoundId, string>();
 
-/** Renders (once, cached) the given sound to a data URI WAV, playable/loopable via expo-av. */
-export function getSoundDataUri(id: SoundId): string {
+/**
+ * Renders (once, cached) the given sound to a raw base64 WAV string.
+ * Use with expo-file-system to write to a temp file, then pass a file:// URI
+ * to expo-av — Android's ExoPlayer does not support data: URIs directly.
+ */
+export function getSoundWavBase64(id: SoundId): string {
   if (cache.has(id)) return cache.get(id)!;
   const samples = RENDERERS[id]();
   const b64 = floatToWavBase64(samples, SAMPLE_RATE);
-  const uri = `data:audio/wav;base64,${b64}`;
-  cache.set(id, uri);
-  return uri;
+  cache.set(id, b64);
+  return b64;
+}
+
+/** @deprecated Use getSoundWavBase64 + expo-file-system instead. data: URIs are not supported by ExoPlayer on Android. */
+export function getSoundDataUri(id: SoundId): string {
+  return `data:audio/wav;base64,${getSoundWavBase64(id)}`;
 }

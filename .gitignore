@@ -12,6 +12,12 @@ android/.gradle/
 android/app/build/
 android/build/
 android/local.properties
+android/key.properties
+
+# Production keystore — never commit signing credentials
+*.keystore
+*.jks
+upload_certificate.pem
 
 ios/Pods/
 ios/build/

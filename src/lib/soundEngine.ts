@@ -1,16 +1,31 @@
-import { Audio, AVPlaybackStatus } from "expo-av";
-import { getSoundDataUri, SoundId } from "./soundSynth";
+import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system";
+import { getSoundWavBase64, SoundId } from "./soundSynth";
 
 // ============================================================
-// SOUND ENGINE — Expo-compatible replacement for the original
-// Web Audio SoundEngine class. Same public surface (play, stop,
-// setVolume, startTimer) and same 5 sounds/behavior (looping,
-// volume 0..1, sleep timer that stops playback), but audio is
-// produced by rendering the original synthesis graphs offline to
-// a seamless WAV loop (see soundSynth.ts) and looping it with
-// expo-av, since AudioContext/OscillatorNode do not exist on
-// native RN.
+// SOUND ENGINE — Expo-compatible ambient audio player.
+//
+// Android's ExoPlayer (used by expo-av under the hood) does NOT
+// support data: URIs. The fix is to write the base64 WAV to a
+// temp file in expo-file-system's cacheDirectory and pass a
+// file:// URI to Audio.Sound.createAsync — which ExoPlayer handles
+// correctly. The temp file is written once per sound per app
+// session (cached by SoundId so subsequent plays reuse it).
 // ============================================================
+
+// Cache of already-written temp file URIs (file:// paths)
+const fileUriCache = new Map<SoundId, string>();
+
+async function getSoundFileUri(id: SoundId): Promise<string> {
+  if (fileUriCache.has(id)) return fileUriCache.get(id)!;
+  const base64 = getSoundWavBase64(id);
+  const path = `${FileSystem.cacheDirectory}sf_sound_${id}.wav`;
+  await FileSystem.writeAsStringAsync(path, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  fileUriCache.set(id, path);
+  return path;
+}
 
 class SoundEngine {
   private sound: Audio.Sound | null = null;
@@ -18,7 +33,6 @@ class SoundEngine {
   private volume = 0.65;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private onEndCb: (() => void) | null = null;
-  private readyPromise: Promise<void> | null = null;
 
   private async ensureAudioMode() {
     await Audio.setAudioModeAsync({
@@ -29,10 +43,10 @@ class SoundEngine {
   }
 
   async play(id: SoundId) {
-    // toggling same sound is handled by the caller (Main screen), same as original
     await this.stop();
     await this.ensureAudioMode();
-    const uri = getSoundDataUri(id);
+    // Write WAV to cache dir first so ExoPlayer gets a file:// URI
+    const uri = await getSoundFileUri(id);
     const { sound } = await Audio.Sound.createAsync(
       { uri },
       { isLooping: true, volume: this.volume, shouldPlay: true }
