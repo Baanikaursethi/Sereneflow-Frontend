@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SFLogo } from "../components/SFLogo";
 import { Input, PillButton, TextButton } from "../components/UI";
-import { login as apiLogin, setRemember } from "../lib/auth";
+import { login as apiLogin, setRemember, isValidEmail } from "../lib/auth";
 import { ApiError } from "../lib/api";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT } from "../lib/theme";
 import { SFUser } from "../lib/types";
@@ -13,9 +13,11 @@ interface LoginProps {
   onForgot: () => void;
   onTerms: () => void;
   onPrivacy: () => void;
+  /** Informational message shown above the form (e.g. an expired session). */
+  notice?: string;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin, onSignup, onForgot, onTerms, onPrivacy }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onSignup, onForgot, onTerms, onPrivacy, notice }) => {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [rem, setRem] = useState(false);
@@ -24,16 +26,23 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onSignup, onForgot, onTer
 
   const go = async () => {
     setErr("");
-    if (!email || !pw) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !pw) {
       setErr("Please fill in all fields.");
       return;
     }
+    if (!isValidEmail(cleanEmail)) {
+      setErr("Please enter a valid email address.");
+      return;
+    }
+    if (loading) return;
     setLoading(true);
     try {
-      const u = await apiLogin({ email, password: pw });
-      if (rem) setRemember(email);
+      const u = await apiLogin({ email: cleanEmail, password: pw });
+      if (rem) setRemember(cleanEmail);
       else setRemember(null);
       setLoading(false);
+      setPw("");
       onLogin(u);
     } catch (e) {
       setLoading(false);
@@ -50,14 +59,39 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onSignup, onForgot, onTer
           </View>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.sub}>Your sanctuary awaits.</Text>
+          {!!notice && !err && (
+            <View style={styles.noticeBox} accessibilityRole="alert">
+              <Text style={styles.noticeText}>{notice}</Text>
+            </View>
+          )}
           {!!err && (
-            <View style={styles.errBox}>
+            <View style={styles.errBox} accessibilityRole="alert">
               <Text style={styles.errText}>{err}</Text>
             </View>
           )}
-          <Input placeholder="Email address" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+          <Input
+            placeholder="Email address"
+            accessibilityLabel="Email address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            keyboardType="email-address"
+            maxLength={254}
+            value={email}
+            onChangeText={setEmail}
+          />
           <View style={{ height: 10 }} />
-          <Input placeholder="Password" secureTextEntry value={pw} onChangeText={setPw} onSubmitEditing={go} />
+          <Input
+            placeholder="Password"
+            accessibilityLabel="Password"
+            secureTextEntry
+            autoComplete="current-password"
+            textContentType="password"
+            value={pw}
+            onChangeText={setPw}
+            onSubmitEditing={go}
+          />
           <View style={styles.row}>
             <TextButton title={rem ? "☑ Remember me" : "☐ Remember me"} onPress={() => setRem(!rem)} />
             <TextButton title="Forgot password?" onPress={onForgot} />
@@ -102,9 +136,17 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   errText: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(255,180,180,0.8)" },
+  noticeBox: {
+    backgroundColor: "rgba(207,167,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(207,167,255,0.18)",
+    borderRadius: 10,
+    padding: 10,
+  },
+  noticeText: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "#C4AFDE" },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, marginBottom: 4 },
   footRow: { flexDirection: "row", justifyContent: "center", marginTop: 4 },
   footText: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: COLORS.textDim },
   legalRow: { flexDirection: "row", gap: 12, justifyContent: "center", marginTop: 4, alignItems: "center" },
-  dot: { color: "rgba(207,167,255,0.32)", fontSize: 12 },
+  dot: { color: "rgba(207,167,255,0.72)", fontSize: 12 },
 });

@@ -82,7 +82,7 @@ export const SFLogo: React.FC<SFLogoProps> = ({ size = 56, glow = true, showWord
               fontFamily: FONT_SANS_LIGHT,
               fontSize: s > 70 ? 12 : 10,
               letterSpacing: 1.5,
-              color: "rgba(207,167,255,0.52)",
+              color: "rgba(207,167,255,0.72)",
               fontStyle: "italic",
               marginTop: 8,
               textAlign: "center",

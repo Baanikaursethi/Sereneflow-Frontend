@@ -5,12 +5,17 @@ import { ModerationNotice } from "../components/ModerationNotice";
 import { CeoBadge } from "../components/SFLogo";
 import { moderateSpacesPost, ModerationReason } from "../lib/moderation";
 import { fetchSpacesPosts, createSpacesPost, createSpacesReply, editSpacesPost, editSpacesReply, deleteSpacesPost, deleteSpacesReply, toggleSpacesReaction, ApiError } from "../lib/spaces";
-import { CEO_EMAIL } from "../data/content";
+import { isCeoUser } from "../lib/ceo";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT, FONT_SANS_MED } from "../lib/theme";
 import { SFUser, SpacesPost } from "../lib/types";
 
 // These 5 reactions are unchanged from before — only their storage moved
 // server-side (see lib/spaces.ts) so counts stay correct after a refresh.
+// Guard against pathological payloads only — deliberately far above any
+// realistic post so no existing post can become uneditable. The backend's own
+// limit remains authoritative.
+const MAX_SPACES_LENGTH = 10000;
+
 const REACTIONS = [
   { emoji: "❤️", label: "I'm here for you" },
   { emoji: "😊", label: "I understand" },
@@ -47,7 +52,9 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
   const [reactingKey, setReactingKey] = useState<string | null>(null);
   // Only gates which buttons the client shows — the backend enforces the real
   // rule (moderation by sereneflow27@gmail.com only) independent of this.
-  const isCeo = user.email === CEO_EMAIL;
+  // Case/whitespace-insensitive, so the real CEO is never locked out of the
+  // moderation menu by how their email was typed or stored.
+  const isCeo = isCeoUser(user);
 
   const loadPosts = async () => {
     setLoading(true);
@@ -70,8 +77,13 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
   }, []);
 
   const post = async () => {
-    if (!text.trim() || posting) return;
-    const mod = moderateSpacesPost(text);
+    const clean = text.trim();
+    if (!clean || posting) return;
+    if (clean.length > MAX_SPACES_LENGTH) {
+      setActionErr(`Posts can be at most ${MAX_SPACES_LENGTH} characters.`);
+      return;
+    }
+    const mod = moderateSpacesPost(clean);
     if (mod.blocked) {
       setBlocked(mod.reason);
       return;
@@ -79,7 +91,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     setPosting(true);
     setActionErr("");
     try {
-      const created = await createSpacesPost({ text, anonymous: anon });
+      const created = await createSpacesPost({ text: clean, anonymous: anon });
       setPosts((all) => [created, ...all]);
       setText("");
       setWriting(false);
@@ -111,10 +123,15 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
   };
 
   const reply = async (pid: string) => {
-    if (!replyText.trim()) return;
+    const clean = replyText.trim();
+    if (!clean) return;
+    if (clean.length > MAX_SPACES_LENGTH) {
+      setActionErr(`Replies can be at most ${MAX_SPACES_LENGTH} characters.`);
+      return;
+    }
     setActionErr("");
     try {
-      const created = await createSpacesReply(pid, { text: replyText.trim(), anonymous: replyAnon });
+      const created = await createSpacesReply(pid, { text: clean, anonymous: replyAnon });
       setPosts((all) => all.map((p) => (p.id === pid ? { ...p, replies: [...(p.replies || []), created] } : p)));
       setReplyText("");
       setReplyAnon(false);
@@ -139,7 +156,10 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     setReplySaving(true);
     setActionErr("");
     try {
-      const updated = await editSpacesReply(postId, replyEditId, replyEditText.trim());
+      // Pass the reply as it is currently rendered so a partial PATCH response
+      // cannot blank its author, timestamp or ownership flag.
+      const previous = posts.find((p) => p.id === postId)?.replies?.find((r) => r.id === replyEditId);
+      const updated = await editSpacesReply(postId, replyEditId, replyEditText.trim(), previous);
       setPosts((all) => all.map((p) => {
         if (p.id !== postId) return p;
         const replies = (p.replies || []).map((r) => (r.id === replyEditId ? { ...r, ...updated } : r));
@@ -181,7 +201,10 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     setEditSaving(true);
     setActionErr("");
     try {
-      const updated = await editSpacesPost(editId, editText);
+      // Same reason as replies: keep replies/reactions/ownership intact when
+      // the API answers a PATCH with only the changed fields.
+      const previous = posts.find((p) => p.id === editId);
+      const updated = await editSpacesPost(editId, editText.trim(), previous);
       setPosts((all) => all.map((p) => (p.id === editId ? { ...p, ...updated } : p)));
       setEditId(null);
       setEditText("");
@@ -234,7 +257,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
     <View style={styles.subpage}>
       <View style={styles.header}>
         <TextButton title="← Back" onPress={onBack} />
-        <Text style={styles.headerTitle}>Spaces</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Spaces</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.banner}>
@@ -254,7 +277,9 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                 setBlocked(null);
               }}
               placeholder={anon ? "Someone shared... what's on your heart?" : "What's on your heart?"}
-              placeholderTextColor="rgba(207,167,255,0.22)"
+              placeholderTextColor="rgba(207,167,255,0.66)"
+              accessibilityLabel={anon ? "Your anonymous post" : "Your post"}
+              maxLength={MAX_SPACES_LENGTH}
               multiline
               textAlignVertical="top"
             />
@@ -328,6 +353,8 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                     <TouchableOpacity
                       style={styles.menuBtn}
                       onPress={() => setMenuOpen(menuOpen === p.id ? null : p.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Post options"
                     >
                       <Text style={styles.menuBtnText}>⋯</Text>
                     </TouchableOpacity>
@@ -356,17 +383,18 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
               </View>
 
               {editId === p.id ? (
-                <View style={{ marginBottom: 8 }}>
-                  <TextInput
-                    style={styles.textarea}
-                    value={editText}
-                    onChangeText={(t) => {
-                      setEditText(t);
-                      setBlocked(null);
-                    }}
-                    multiline
-                    textAlignVertical="top"
-                  />
+                <View style={{ marginBottom: 8 }}>                    <TextInput
+                      style={styles.textarea}
+                      value={editText}
+                      onChangeText={(t) => {
+                        setEditText(t);
+                        setBlocked(null);
+                      }}
+                      accessibilityLabel="Edit your post"
+                      maxLength={MAX_SPACES_LENGTH}
+                      multiline
+                      textAlignVertical="top"
+                    />
                   {blocked && <ModerationNotice reason={blocked} />}
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                     <PillButton title="Save" onPress={saveEdit} loading={editSaving} style={{ flex: 1, paddingVertical: 10 }} />
@@ -448,7 +476,14 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                         {replyEditId === r.id ? (
                           <View style={{ flex: 1 }}>
-                            <TextInput style={[styles.textarea, { minHeight: 44 }]} value={replyEditText} onChangeText={setReplyEditText} multiline />
+                            <TextInput
+                              style={[styles.textarea, { minHeight: 44 }]}
+                              value={replyEditText}
+                              onChangeText={setReplyEditText}
+                              accessibilityLabel="Edit your reply"
+                              maxLength={MAX_SPACES_LENGTH}
+                              multiline
+                            />
                             <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
                               <SmButton title="Save" onPress={() => saveReplyEdit(p.id)} />
                               <SmButton title="Cancel" onPress={() => { setReplyEditId(null); setReplyEditText(""); }} />
@@ -486,7 +521,9 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                   <TextInput
                     style={[styles.textarea, { minHeight: 44, marginBottom: 6 }]}
                     placeholder="Write a kind reply..."
-                    placeholderTextColor="rgba(207,167,255,0.22)"
+                    placeholderTextColor="rgba(207,167,255,0.66)"
+                    accessibilityLabel="Write a reply"
+                    maxLength={MAX_SPACES_LENGTH}
                     value={replyText}
                     onChangeText={setReplyText}
                   />
@@ -531,7 +568,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 14,
   },
-  bannerText: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.55)", textAlign: "center" },
+  bannerText: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.72)", textAlign: "center" },
   errBanner: {
     fontFamily: FONT_SANS_LIGHT,
     fontSize: 12.5,
@@ -549,7 +586,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
-  newBtnText: { color: "rgba(207,167,255,0.55)", fontFamily: FONT_SANS_LIGHT, fontSize: 14 },
+  newBtnText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 14 },
   textarea: {
     backgroundColor: "rgba(255,255,255,0.035)",
     borderWidth: 1,
@@ -576,8 +613,8 @@ const styles = StyleSheet.create({
   anonLabel: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "#C4AFDE", flex: 1 },
   anonBadge: { color: "#CFA7FF" },
   empty: { alignItems: "center", padding: 36 },
-  emptyMain: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 17, color: "rgba(207,167,255,0.38)" },
-  emptySub: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.38)", marginTop: 6, textAlign: "center" },
+  emptyMain: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 17, color: "rgba(207,167,255,0.72)" },
+  emptySub: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.72)", marginTop: 6, textAlign: "center" },
   sCard: {
     backgroundColor: COLORS.cardBg,
     borderWidth: 1,
@@ -586,7 +623,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   sCardHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  sAnon: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.3)", marginBottom: 8 },
+  sAnon: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.72)", marginBottom: 8 },
   sAuthorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   sAuthorAv: {
     width: 22,
@@ -598,9 +635,9 @@ const styles = StyleSheet.create({
   },
   sAuthorImage: { width: 30, height: 30, borderRadius: 15 },
   sAuthorAvText: { fontSize: 11, color: "#E8D8FF", fontFamily: FONT_SANS_MED },
-  sAuthorName: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.55)" },
+  sAuthorName: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.72)" },
   menuBtn: { paddingVertical: 2, paddingHorizontal: 8 },
-  menuBtnText: { color: "rgba(207,167,255,0.35)", fontSize: 18 },
+  menuBtnText: { color: "rgba(207,167,255,0.72)", fontSize: 18 },
   menuDropdown: {
     position: "absolute",
     top: 28,
@@ -618,7 +655,7 @@ const styles = StyleSheet.create({
   menuItemText: { color: "rgba(207,167,255,0.7)", fontFamily: FONT_SANS_LIGHT, fontSize: 13 },
   menuItemDanger: { color: "rgba(255,150,150,0.6)" },
   sText: { fontFamily: FONT_SANS_LIGHT, color: "#D4C4F0", lineHeight: 23, fontSize: 14.5, marginBottom: 8 },
-  sTime: { fontFamily: FONT_SANS_LIGHT, fontSize: 10.5, color: "rgba(207,167,255,0.26)", marginBottom: 10 },
+  sTime: { fontFamily: FONT_SANS_LIGHT, fontSize: 10.5, color: "rgba(207,167,255,0.72)", marginBottom: 10 },
   delConfirm: {
     backgroundColor: "rgba(255,80,80,0.055)",
     borderWidth: 1,

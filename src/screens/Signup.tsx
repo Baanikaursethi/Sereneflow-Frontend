@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from "react-native";
 import { SFLogo } from "../components/SFLogo";
 import { Input, PillButton, TextButton } from "../components/UI";
-import { signup as apiSignup } from "../lib/auth";
+import { signup as apiSignup, isValidEmail } from "../lib/auth";
 import { ApiError } from "../lib/api";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT } from "../lib/theme";
 import { SFUser } from "../lib/types";
@@ -25,8 +25,18 @@ export const Signup: React.FC<SignupProps> = ({ onSignup, onLogin, onTerms, onPr
 
   const go = async () => {
     setErr("");
-    if (!name || !email || !pw) {
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+    if (!cleanName || !cleanEmail || !pw) {
       setErr("Please fill in all fields.");
+      return;
+    }
+    if (cleanName.length > 60) {
+      setErr("Your name must be 60 characters or fewer.");
+      return;
+    }
+    if (!isValidEmail(cleanEmail)) {
+      setErr("Please enter a valid email address.");
       return;
     }
     if (pw !== conf) {
@@ -41,10 +51,13 @@ export const Signup: React.FC<SignupProps> = ({ onSignup, onLogin, onTerms, onPr
       setErr("Please agree to the Terms & Conditions and Privacy Policy to continue.");
       return;
     }
+    if (loading) return;
     setLoading(true);
     try {
-      const u = await apiSignup({ name, email, password: pw });
+      const u = await apiSignup({ name: cleanName, email: cleanEmail, password: pw });
       setLoading(false);
+      setPw("");
+      setConf("");
       onSignup(u);
     } catch (e) {
       setLoading(false);
@@ -62,18 +75,58 @@ export const Signup: React.FC<SignupProps> = ({ onSignup, onLogin, onTerms, onPr
           <Text style={styles.title}>Begin your journey</Text>
           <Text style={styles.sub}>Create your private sanctuary.</Text>
           {!!err && (
-            <View style={styles.errBox}>
+            <View style={styles.errBox} accessibilityRole="alert">
               <Text style={styles.errText}>{err}</Text>
             </View>
           )}
-          <Input placeholder="Your name" value={name} onChangeText={setName} />
+          <Input
+            placeholder="Your name"
+            accessibilityLabel="Your name"
+            autoComplete="name"
+            maxLength={60}
+            value={name}
+            onChangeText={setName}
+          />
           <View style={{ height: 10 }} />
-          <Input placeholder="Email address" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+          <Input
+            placeholder="Email address"
+            accessibilityLabel="Email address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            keyboardType="email-address"
+            maxLength={254}
+            value={email}
+            onChangeText={setEmail}
+          />
           <View style={{ height: 10 }} />
-          <Input placeholder="Password" secureTextEntry value={pw} onChangeText={setPw} />
+          <Input
+            placeholder="Password"
+            accessibilityLabel="Password"
+            secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            value={pw}
+            onChangeText={setPw}
+          />
           <View style={{ height: 10 }} />
-          <Input placeholder="Confirm password" secureTextEntry value={conf} onChangeText={setConf} />
-          <TouchableOpacity style={styles.agreeRow} onPress={() => setAgreed(!agreed)}>
+          <Input
+            placeholder="Confirm password"
+            accessibilityLabel="Confirm password"
+            secureTextEntry
+            autoComplete="new-password"
+            textContentType="newPassword"
+            value={conf}
+            onChangeText={setConf}
+          />
+          <TouchableOpacity
+            style={styles.agreeRow}
+            onPress={() => setAgreed(!agreed)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreed }}
+            accessibilityLabel="I agree to the Terms and Privacy Policy"
+          >
             <Text style={styles.checkbox}>{agreed ? "☑" : "☐"}</Text>
             <Text style={styles.agreeText}>
               I agree to the{" "}

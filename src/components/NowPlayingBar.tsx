@@ -35,8 +35,14 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({ soundPlaying, soun
         minimumTrackTintColor="#CFA7FF"
         maximumTrackTintColor="rgba(207,167,255,0.15)"
         thumbTintColor="#CFA7FF"
+        accessibilityLabel="Volume"
       />
-      <TouchableOpacity style={styles.stopBtn} onPress={onStop}>
+      <TouchableOpacity
+        style={styles.stopBtn}
+        onPress={onStop}
+        accessibilityRole="button"
+        accessibilityLabel="Stop sound"
+      >
         <Text style={styles.stopText}>■</Text>
       </TouchableOpacity>
     </View>
@@ -68,7 +74,7 @@ const styles = StyleSheet.create({
   icon: { fontSize: 17 },
   textWrap: { flex: 1, minWidth: 0 },
   name: { fontFamily: FONT_SANS_MED, fontWeight: "500", fontSize: 13, color: "#E8D8FF" },
-  timer: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.55)" },
+  timer: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.72)" },
   slider: { width: 76, height: 30 },
   stopBtn: {
     backgroundColor: "rgba(207,167,255,0.1)",

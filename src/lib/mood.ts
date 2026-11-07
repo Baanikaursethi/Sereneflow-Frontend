@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { firstTime } from "./time";
 
 // ============================================================
 // MOOD API — talks to backend /moods endpoints.
@@ -31,11 +32,13 @@ export interface MoodEntry {
   time: string;
 }
 
-function normalizeEntry(raw: any, idx: number): MoodEntry {
+function normalizeEntry(raw: any, idx: number, fallbackMood?: string): MoodEntry {
   return {
-    id: raw.id ?? raw._id ?? String(idx),
-    mood: raw.moodLabel ?? raw.mood ?? raw.label,
-    time: raw.timestamp ?? raw.time ?? raw.createdAt ?? new Date().toISOString(),
+    id: String(raw?.id ?? raw?._id ?? idx),
+    // If a create response echoes only the stored document id, fall back to
+    // the label that was just sent so the history row is never blank.
+    mood: raw?.moodLabel ?? raw?.mood ?? raw?.label ?? fallbackMood ?? "Mood",
+    time: firstTime(raw?.timestamp, raw?.time, raw?.createdAt, raw?.created),
   };
 }
 
@@ -43,19 +46,20 @@ export async function saveMoodCheckIn(mood: string): Promise<MoodEntry> {
   const rating = MOOD_RATING[mood] ?? 3;
   const res = await api.post("/moods", { rating, moodLabel: mood });
   const raw = res?.data ?? res;
-  return normalizeEntry(raw ?? { moodLabel: mood }, 0);
+  return normalizeEntry(raw ?? { moodLabel: mood }, 0, mood);
 }
 
 export async function getMoodHistory(): Promise<MoodEntry[]> {
   const res = await api.get("/moods");
-  const list = Array.isArray(res) ? res : res?.data ?? [];
-  return list.map(normalizeEntry);
+  const list = Array.isArray(res) ? res : res?.data ?? res?.moods ?? res?.items ?? [];
+  if (!Array.isArray(list)) return [];
+  return list.map((raw, i) => normalizeEntry(raw, i));
 }
 
 export async function getLatestMood(): Promise<MoodEntry | null> {
   const res = await api.get("/moods/latest");
   const raw = res?.data ?? res;
-  if (!raw) return null;
+  if (!raw || typeof raw !== "object") return null;
   return normalizeEntry(raw, 0);
 }
 

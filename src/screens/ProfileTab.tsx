@@ -4,10 +4,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Input, PillButton, SmButton } from "../components/UI";
 import { CeoBadge } from "../components/SFLogo";
-import { store } from "../lib/store";
 import { fetchMyProfile, updateMyName, updateMyAvatar, logMyActivity, deleteMyAccount } from "../lib/profile";
 import { ApiError } from "../lib/api";
-import { CEO_EMAIL } from "../data/content";
+import { isCeoUser } from "../lib/ceo";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT } from "../lib/theme";
 import { SFUser } from "../lib/types";
 
@@ -59,15 +58,16 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   const save = async () => {
     if (!name.trim() || saving) return;
+    if (name.trim().length > 60) {
+      setSaveErr("Your name must be 60 characters or fewer.");
+      return;
+    }
     setSaving(true);
     setSaveErr("");
     try {
-      const updated = await updateMyName(name, user);
-      const users = store.get("sf_users", {});
-      if (users[user.email]) {
-        users[user.email].name = name;
-        store.set("sf_users", users);
-      }
+      // setUser also refreshes the cached profile (see App.tsx); the stored
+      // user object intentionally holds no credentials.
+      const updated = await updateMyName(name.trim(), user);
       setUser(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -87,7 +87,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         base64: true,
         quality: 0.7,
         allowsEditing: true,
@@ -111,11 +111,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       const dataUri = `data:image/jpeg;base64,${manipulated.base64}`;
       setAvUploading(true);
       const updated = await updateMyAvatar(dataUri, user);
-      const users = store.get("sf_users", {});
-      if (users[user.email]) {
-        users[user.email].avatar = updated.avatar;
-        store.set("sf_users", users);
-      }
       setUser(updated);
     } catch (err) {
       setAvError(err instanceof ApiError ? err.message : "An error occurred while selecting photo.");
@@ -141,18 +136,30 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={styles.title}>Your Profile</Text>
-          {user.email === CEO_EMAIL && <CeoBadge />}
+          <Text style={styles.title} accessibilityRole="header">Your Profile</Text>
+          {isCeoUser(user) && <CeoBadge />}
         </View>
         <Text style={styles.sub}>Your space, your story.</Text>
       </View>
 
       <View style={styles.avWrap}>
-        <TouchableOpacity style={styles.av} onPress={handleAvatarPick} activeOpacity={0.8} disabled={avUploading}>
+        <TouchableOpacity
+          style={styles.av}
+          onPress={handleAvatarPick}
+          activeOpacity={0.8}
+          disabled={avUploading}
+          accessibilityRole="button"
+          accessibilityLabel="Change profile photo"
+          accessibilityState={{ disabled: avUploading, busy: avUploading }}
+        >
           {avUploading ? (
             <ActivityIndicator color="#F0E4FF" />
           ) : user.avatar ? (
-            <Image source={{ uri: user.avatar }} style={styles.avImg} />
+            <Image
+              source={{ uri: user.avatar }}
+              style={styles.avImg}
+              accessibilityLabel="Your profile photo"
+            />
           ) : (
             <Text style={{ fontSize: 32 }}>👤</Text>
           )}
@@ -163,7 +170,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       <View style={styles.section}>
         <Text style={styles.label}>Display Name</Text>
-        <Input value={name} onChangeText={setName} />
+        <Input value={name} onChangeText={setName} accessibilityLabel="Display name" maxLength={60} />
         <Text style={[styles.label, { marginTop: 8 }]}>Email</Text>
         <Input value={user.email} editable={false} style={{ opacity: 1, color: "#E8D5FF" }} />
         <PillButton title={saved ? "✓ Saved" : "Save Changes"} onPress={save} loading={saving} style={{ marginTop: 12 }} />
@@ -179,7 +186,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </View>
       </View>
 
-      {user.email === CEO_EMAIL && (
+      {isCeoUser(user) && (
         <View style={styles.section}>
           <Text style={styles.label}>Admin</Text>
           <TouchableOpacity style={styles.adminBtn} onPress={onOpenAdmin}>
@@ -247,10 +254,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   avImg: { width: "100%", height: "100%" },
-  avHint: { opacity: 0.45, fontSize: 12, marginTop: 7, fontFamily: FONT_SANS_LIGHT },
+  avHint: { opacity: 0.8, fontSize: 12, marginTop: 7, fontFamily: FONT_SANS_LIGHT },
   errText: { color: "rgba(255,180,180,0.8)", marginTop: 8, fontSize: 12, fontFamily: FONT_SANS_LIGHT },
   section: { marginBottom: 20 },
-  label: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, letterSpacing: 1, color: "rgba(207,167,255,0.38)", textTransform: "uppercase", marginBottom: 8 },
+  label: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, letterSpacing: 1, color: "rgba(207,167,255,0.72)", textTransform: "uppercase", marginBottom: 8 },
   actCard: { backgroundColor: COLORS.cardBg, borderWidth: 1, borderColor: "rgba(207,167,255,0.065)", borderRadius: 12, padding: 14, gap: 6 },
   actP: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: COLORS.textDim },
   adminBtn: {
@@ -270,7 +277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     alignItems: "center",
   },
-  logoutText: { color: "rgba(207,167,255,0.62)", fontFamily: FONT_SANS_LIGHT, fontSize: 14 },
+  logoutText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 14 },
   delBtn: {
     backgroundColor: "rgba(255,80,80,0.06)",
     borderWidth: 1,

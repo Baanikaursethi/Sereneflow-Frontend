@@ -7,9 +7,12 @@ import { COLORS, FONT_SANS_LIGHT } from "../lib/theme";
 // .inp, .pill-btn, .sm-btn, .txt-btn (same visual intent/colors).
 // ============================================================
 
+// Placeholder text is low-contrast decoration, so every input also carries an
+// accessible name for screen readers (falls back to the placeholder).
 export const Input: React.FC<TextInputProps> = (props) => (
   <TextInput
-    placeholderTextColor="rgba(207,167,255,0.25)"
+    placeholderTextColor="rgba(207,167,255,0.66)"
+    accessibilityLabel={props.accessibilityLabel ?? props.placeholder}
     style={[styles.input, props.style]}
     {...props}
   />
@@ -27,6 +30,9 @@ export const PillButton: React.FC<{
     onPress={onPress}
     disabled={disabled || loading}
     activeOpacity={0.85}
+    accessibilityRole="button"
+    accessibilityLabel={title}
+    accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
   >
     {loading ? <ActivityIndicator color="#F0E4FF" /> : <Text style={styles.pillBtnText}>{title}</Text>}
   </TouchableOpacity>
@@ -37,7 +43,7 @@ export const TextButton: React.FC<{ title: string; onPress: () => void; style?: 
   onPress,
   style,
 }) => (
-  <TouchableOpacity onPress={onPress} style={style}>
+  <TouchableOpacity onPress={onPress} style={style} accessibilityRole="button" accessibilityLabel={title}>
     <Text style={styles.txtBtn}>{title}</Text>
   </TouchableOpacity>
 );
@@ -48,7 +54,13 @@ export const SmButton: React.FC<{
   danger?: boolean;
   style?: ViewStyle;
 }> = ({ title, onPress, danger, style }) => (
-  <TouchableOpacity onPress={onPress} style={[styles.smBtn, style]} activeOpacity={0.8}>
+  <TouchableOpacity
+    onPress={onPress}
+    style={[styles.smBtn, style]}
+    activeOpacity={0.8}
+    accessibilityRole="button"
+    accessibilityLabel={title}
+  >
     <Text style={[styles.smBtnText, danger && styles.smBtnTextDanger]}>{title}</Text>
   </TouchableOpacity>
 );
@@ -76,7 +88,7 @@ const styles = StyleSheet.create({
   },
   pillBtnDisabled: { opacity: 0.52 },
   pillBtnText: {
-    color: "#F0E4FF",
+    color: "#FFFFFF",
     fontFamily: FONT_SANS_LIGHT,
     fontSize: 15,
     letterSpacing: 1,

@@ -56,3 +56,18 @@ Thumbs.db
 # Firebase
 .firebase/
 firebase-debug.log
+
+# Signing material and build artifacts — never commit these.
+# A committed upload keystore allows anyone to sign a look-alike update, and a
+# committed .aab/.apk distributes builds outside Play review.
+# The debug keystore is the one exception: it is a public, throwaway key that
+# Android tooling requires for debug builds.
+*.keystore
+*.jks
+!android/app/debug.keystore
+*.pem
+*.p12
+*.aab
+*.apk
+android/app/release/
+release-upload-key.keystore

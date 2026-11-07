@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { MOODS, Mood } from "../data/content";
 import { store } from "../lib/store";
@@ -21,23 +21,30 @@ export const MoodTab: React.FC<MoodTabProps> = ({ user, onOpen, playSound }) => 
   const [history, setHistory] = useState<MoodEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyErr, setHistoryErr] = useState("");
+  // Guards against a slow request resolving after the screen unmounted.
+  const mounted = useRef(true);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     setHistoryErr("");
     try {
       const entries = await getMoodHistory();
+      if (!mounted.current) return;
       // most recent first
       setHistory([...entries].sort((a, b) => (a.time < b.time ? 1 : -1)));
     } catch (e) {
-      setHistoryErr("Couldn't load mood history.");
+      if (mounted.current) setHistoryErr("Couldn't load mood history.");
     } finally {
-      setHistoryLoading(false);
+      if (mounted.current) setHistoryLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mounted.current = true;
     loadHistory();
+    return () => {
+      mounted.current = false;
+    };
   }, [loadHistory]);
 
   const pick = (m: Mood) => {
@@ -70,7 +77,7 @@ export const MoodTab: React.FC<MoodTabProps> = ({ user, onOpen, playSound }) => 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>How are you feeling?</Text>
+        <Text style={styles.title} accessibilityRole="header">How are you feeling?</Text>
         <Text style={styles.sub}>There's no wrong answer here.</Text>
       </View>
       <View style={styles.grid}>
@@ -79,6 +86,9 @@ export const MoodTab: React.FC<MoodTabProps> = ({ user, onOpen, playSound }) => 
             key={m.label}
             style={[styles.moodBtn, sel?.label === m.label && { borderColor: m.color, backgroundColor: "rgba(207,167,255,0.07)" }]}
             onPress={() => pick(m)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: sel?.label === m.label }}
+            accessibilityLabel={`Mood: ${m.label}`}
           >
             <Text style={styles.moodEm}>{m.emoji}</Text>
             <Text style={styles.moodLb}>{m.label}</Text>
@@ -192,7 +202,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   moodEm: { fontSize: 22 },
-  moodLb: { fontFamily: FONT_SANS_LIGHT, fontSize: 10, color: "rgba(207,167,255,0.52)" },
+  moodLb: { fontFamily: FONT_SANS_LIGHT, fontSize: 10, color: "rgba(207,167,255,0.72)" },
   qcard: {
     backgroundColor: "rgba(124,92,191,0.13)",
     borderWidth: 1,
@@ -217,7 +227,7 @@ const styles = StyleSheet.create({
   },
   affDot: { width: 5, height: 5, borderRadius: 3 },
   affText: { fontFamily: FONT_SERIF, fontSize: 15, fontStyle: "italic", color: "#C4AFDE", flex: 1, lineHeight: 22 },
-  recLabel: { fontFamily: FONT_SANS_LIGHT, fontSize: 10.5, letterSpacing: 1, color: "rgba(207,167,255,0.35)", textTransform: "uppercase", marginBottom: 10 },
+  recLabel: { fontFamily: FONT_SANS_LIGHT, fontSize: 10.5, letterSpacing: 1, color: "rgba(207,167,255,0.72)", textTransform: "uppercase", marginBottom: 10 },
   recs: { gap: 8, marginBottom: 16 },
   recCard: {
     flexDirection: "row",
@@ -234,7 +244,7 @@ const styles = StyleSheet.create({
   recSub: { fontFamily: FONT_SANS_LIGHT, color: COLORS.textDim, fontSize: 11, marginTop: 2 },
   recArr: { color: "rgba(207,167,255,0.32)", fontSize: 15 },
   saveBtn: { backgroundColor: "rgba(207,167,255,0.08)", borderWidth: 1, borderColor: "rgba(207,167,255,0.17)", borderRadius: 12, paddingVertical: 12, alignItems: "center" },
-  saveBtnText: { color: "rgba(207,167,255,0.65)", fontFamily: FONT_SANS_LIGHT, fontSize: 13.5 },
+  saveBtnText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 13.5 },
   savedOk: { textAlign: "center", color: "#A8E6CF", fontFamily: FONT_SANS_LIGHT, fontSize: 13.5, padding: 12 },
   errText: { textAlign: "center", color: "#E8A0A0", fontFamily: FONT_SANS_LIGHT, fontSize: 12.5, marginTop: 8 },
   historySection: { marginTop: 26 },

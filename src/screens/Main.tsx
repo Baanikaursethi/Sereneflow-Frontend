@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { HomePage } from "./HomePage";
 import { SoundsTab } from "./SoundsTab";
@@ -100,6 +100,17 @@ export const Main: React.FC<MainProps> = ({
     soundEngine.setVolume(v);
   }, []);
 
+  // Release the audio player and the sleep-timer interval when the signed-in
+  // shell unmounts (logout / account deletion), so a stale timer can neither
+  // keep running nor call setState on an unmounted tree.
+  useEffect(() => {
+    return () => {
+      if (timerIv.current) clearInterval(timerIv.current);
+      timerIv.current = null;
+      soundEngine.stop();
+    };
+  }, []);
+
   const hasNav = !subPage;
   const bottomOffset = soundPlaying ? 148 : 90;
 
@@ -179,7 +190,14 @@ export const Main: React.FC<MainProps> = ({
       {hasNav && (
         <View style={styles.bottomNav}>
           {NAV.map((t) => (
-            <TouchableOpacity key={t.id} style={[styles.navBtn, navTab === t.id && styles.navBtnActive]} onPress={() => setNavTab(t.id)}>
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.navBtn, navTab === t.id && styles.navBtnActive]}
+              onPress={() => setNavTab(t.id)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: navTab === t.id }}
+              accessibilityLabel={t.label}
+            >
               <Text style={styles.navIcon}>{t.icon}</Text>
               <Text style={[styles.navLabel, navTab === t.id && styles.navLabelActive]}>{t.label}</Text>
               {t.id === "sounds" && soundPlaying && <View style={styles.playingDot} />}
@@ -220,7 +238,7 @@ const styles = StyleSheet.create({
   navBtn: { alignItems: "center", gap: 2, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, position: "relative" },
   navBtnActive: { backgroundColor: "rgba(124,92,191,0.22)" },
   navIcon: { fontSize: 19 },
-  navLabel: { fontFamily: FONT_SANS_LIGHT, fontSize: 9.5, color: "rgba(207,167,255,0.42)" },
+  navLabel: { fontFamily: FONT_SANS_LIGHT, fontSize: 9.5, color: "rgba(207,167,255,0.72)" },
   navLabelActive: { color: "#CFA7FF" },
   playingDot: { position: "absolute", top: 4, right: 8, width: 6, height: 6, borderRadius: 3, backgroundColor: "#A8E6CF" },
 });

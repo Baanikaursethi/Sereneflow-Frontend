@@ -18,7 +18,7 @@ export const Terms: React.FC<{ onBack: () => void }> = ({ onBack }) => (
     <View style={{ alignItems: "center", marginBottom: 14 }}>
       <SFLogo size={36} glow />
     </View>
-    <Text style={styles.title}>Terms & Conditions</Text>
+    <Text style={styles.title} accessibilityRole="header">Terms & Conditions</Text>
     <Text style={styles.date}>Effective Date: June 2025</Text>
 
     <Section h="1. Acceptance of Terms">
@@ -59,8 +59,15 @@ export const Terms: React.FC<{ onBack: () => void }> = ({ onBack }) => (
     <Section h="9. Changes to These Terms">
       <P>We may update these Terms from time to time. Continued use of Serene Flow after changes are made constitutes acceptance of the updated Terms.</P>
     </Section>
-    <Section h="10. Contact">
-      <P>Questions about these Terms? Email hello@sereneflow.app</P>
+    <Section h="10. Copyright & DMCA">
+      <P>
+        If you believe content in Serene Flow infringes your copyright, email us with the details of the
+        material, where it appears, and your contact information, and we will review and remove infringing
+        content where appropriate. Repeat infringers may have their accounts removed.
+      </P>
+    </Section>
+    <Section h="11. Contact">
+      <P>Questions about these Terms? Email sereneflow27@gmail.com</P>
     </Section>
     <View style={{ height: 30 }} />
   </ScrollView>
@@ -72,7 +79,7 @@ export const Privacy: React.FC<{ onBack: () => void }> = ({ onBack }) => (
     <View style={{ alignItems: "center", marginBottom: 14 }}>
       <SFLogo size={36} glow />
     </View>
-    <Text style={styles.title}>Privacy Policy</Text>
+    <Text style={styles.title} accessibilityRole="header">Privacy Policy</Text>
     <Text style={styles.date}>Effective Date: June 2025</Text>
 
     <Section h="1. Our Commitment to Your Privacy">
@@ -111,8 +118,15 @@ export const Privacy: React.FC<{ onBack: () => void }> = ({ onBack }) => (
     <Section h="9. Safety Note">
       <P>If you are experiencing a crisis or having thoughts of self-harm, please reach out to a trusted person in your life or a mental health professional. Serene Flow is a wellness tool and is not equipped to provide emergency support.</P>
     </Section>
-    <Section h="10. Contact">
-      <P>Privacy questions or requests: privacy@sereneflow.app</P>
+    <Section h="10. Your Rights & Data Deletion Requests">
+      <P>
+        You can request a copy of your account information or ask us to delete your account and its data by
+        emailing sereneflow27@gmail.com. You can also delete your account yourself from Profile, which removes
+        your account and the journal entries and saved Mind Drops stored on this device.
+      </P>
+    </Section>
+    <Section h="11. Contact">
+      <P>Privacy questions or requests: sereneflow27@gmail.com</P>
     </Section>
     <View style={{ height: 30 }} />
   </ScrollView>

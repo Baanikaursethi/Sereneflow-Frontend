@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { SFLogo } from "../components/SFLogo";
 import { Input, PillButton, TextButton } from "../components/UI";
-import { forgotPassword, resetPassword } from "../lib/auth";
+import { forgotPassword, resetPassword, isValidEmail, isValidResetCode } from "../lib/auth";
 import { ApiError } from "../lib/api";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT } from "../lib/theme";
 
@@ -22,13 +22,19 @@ export const Forgot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const go = async () => {
     setErr("");
-    if (!email) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
       setErr("Please enter your email.");
       return;
     }
+    if (!isValidEmail(cleanEmail)) {
+      setErr("Please enter a valid email address.");
+      return;
+    }
+    if (loading) return;
     setLoading(true);
     try {
-      await forgotPassword(email);
+      await forgotPassword(cleanEmail);
       setLoading(false);
       setSent(true);
     } catch (e) {
@@ -43,6 +49,12 @@ export const Forgot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setResetErr("Please enter the reset code from your email.");
       return;
     }
+    // The backend rejects anything that is not exactly 6 digits; checking here
+    // avoids a round-trip and gives a message the user can act on.
+    if (!isValidResetCode(code)) {
+      setResetErr("The reset code must be exactly 6 digits.");
+      return;
+    }
     if (newPw.length < 6) {
       setResetErr("Password must be at least 6 characters.");
       return;
@@ -51,10 +63,15 @@ export const Forgot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setResetErr("Passwords do not match.");
       return;
     }
+    if (resetting) return;
     setResetting(true);
     try {
       await resetPassword({ email, code: code.trim(), newPassword: newPw });
       setResetting(false);
+      // Never keep the new password in component state once it has been used.
+      setNewPw("");
+      setConfPw("");
+      setCode("");
       setResetDone(true);
     } catch (e) {
       setResetting(false);
@@ -87,7 +104,14 @@ export const Forgot: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <Text style={styles.errText}>{resetErr}</Text>
               </View>
             )}
-            <Input placeholder="6-digit reset code" autoCapitalize="none" value={code} onChangeText={setCode} />
+            <Input
+              placeholder="6-digit reset code"
+              autoCapitalize="none"
+              keyboardType="number-pad"
+              maxLength={6}
+              value={code}
+              onChangeText={setCode}
+            />
             <View style={{ height: 10 }} />
             <Input placeholder="New password" secureTextEntry value={newPw} onChangeText={setNewPw} />
             <View style={{ height: 10 }} />

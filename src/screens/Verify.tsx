@@ -33,7 +33,9 @@ export const Verify: React.FC<VerifyProps> = ({ email, onVerified, onBack }) => 
       onVerified(verifiedUser);
     } catch (e) {
       setLoading(false);
-      setErr(e instanceof ApiError ? e.message : "Invalid verification code.");
+      // A successful verify whose response lacks a session throws a plain Error
+      // with the real explanation; showing "invalid code" there would be wrong.
+      setErr(e instanceof Error && e.message ? e.message : "Invalid verification code.");
     }
   };
 
@@ -46,7 +48,7 @@ export const Verify: React.FC<VerifyProps> = ({ email, onVerified, onBack }) => 
       setResent(true);
     } catch (e) {
       setResending(false);
-      setErr(e instanceof ApiError ? e.message : "Couldn't resend the code. Please try again.");
+      setErr(e instanceof ApiError && e.message ? e.message : "Couldn't resend the code. Please try again.");
     }
   };
 

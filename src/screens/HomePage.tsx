@@ -4,6 +4,7 @@ import { SFLogo } from "../components/SFLogo";
 import { BreathMiniPreview } from "../components/BreathVisuals";
 import { MIND_DROPS, MindDrop, getDropsForMood } from "../data/content";
 import { store } from "../lib/store";
+import { fetchSpacesPosts } from "../lib/spaces";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT, FONT_SANS_MED } from "../lib/theme";
 import { SFUser, SubPage } from "../lib/types";
 
@@ -29,7 +30,13 @@ export const HomePage: React.FC<HomePageProps> = ({ user, onOpen }) => {
   const [drop, setDrop] = useState<MindDrop>(() => pickWeightedDrop(null));
   const [dropAnim, setDropAnim] = useState(true);
   const [orbPulse, setOrbPulse] = useState(false);
-  const spaces = store.get("sf_spaces", []);
+  // The Spaces card preview used to read a local `sf_spaces` copy that is no
+  // longer written (posts live server-side), so the card always claimed the
+  // space was empty. It now shows the same preview from live data.
+  const [spaces, setSpaces] = useState<{ count: number; firstText: string | null }>({
+    count: 0,
+    firstText: null,
+  });
   const journals = store.get(`sf_journal_${user.email}`, []);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -48,6 +55,22 @@ export const HomePage: React.FC<HomePageProps> = ({ user, onOpen }) => {
   useEffect(() => {
     const t = setInterval(() => setOrbPulse((p) => !p), 2800);
     return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const posts = await fetchSpacesPosts();
+        if (cancelled) return;
+        setSpaces({ count: posts.length, firstText: posts[0]?.text ?? null });
+      } catch {
+        // Offline or signed out: keep the quiet empty state, no error banner on Home.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -106,17 +129,17 @@ export const HomePage: React.FC<HomePageProps> = ({ user, onOpen }) => {
           <Text style={styles.cardArrow}>→</Text>
         </View>
         <Text style={styles.spacesSafe}>You're not alone. 🌸</Text>
-        {spaces.length > 0 ? (
+        {spaces.firstText ? (
           <Text style={styles.spacesPreview}>
-            "{spaces[0].text.slice(0, 68)}
-            {spaces[0].text.length > 68 ? "…" : ""}"
+            "{spaces.firstText.slice(0, 68)}
+            {spaces.firstText.length > 68 ? "…" : ""}"
           </Text>
         ) : (
           <Text style={styles.spacesEmpty}>A quiet space to share and be heard.</Text>
         )}
-        {spaces.length > 0 && (
+        {spaces.count > 0 && (
           <Text style={styles.cardMeta}>
-            {spaces.length} {spaces.length === 1 ? "voice" : "voices"} in this space
+            {spaces.count} {spaces.count === 1 ? "voice" : "voices"} in this space
           </Text>
         )}
       </TouchableOpacity>
@@ -143,11 +166,11 @@ const styles = StyleSheet.create({
   cardTitle: { fontFamily: FONT_SERIF, fontSize: 18, fontWeight: "500", color: COLORS.text, flex: 1 },
   cardArrow: { color: "rgba(207,167,255,0.35)", fontSize: 15 },
   cardPrompt: { fontFamily: FONT_SANS_LIGHT, fontSize: 14, color: "rgba(207,167,255,0.7)", lineHeight: 22 },
-  cardMeta: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.3)", marginTop: 8 },
+  cardMeta: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.72)", marginTop: 8 },
   dropsQuote: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 16, color: "#D4C4F0", lineHeight: 24 },
   pausePreview: { flexDirection: "row", alignItems: "center", gap: 16 },
   pausePreviewText: { fontFamily: FONT_SANS_LIGHT, color: "#CFA7FF", fontSize: 14 },
   spacesSafe: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 16, color: "#C4AFDE", marginBottom: 6 },
-  spacesPreview: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.6)", fontStyle: "italic" },
-  spacesEmpty: { fontFamily: FONT_SERIF, fontSize: 13, color: "rgba(207,167,255,0.38)", fontStyle: "italic" },
+  spacesPreview: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.72)", fontStyle: "italic" },
+  spacesEmpty: { fontFamily: FONT_SERIF, fontSize: 13, color: "rgba(207,167,255,0.72)", fontStyle: "italic" },
 });

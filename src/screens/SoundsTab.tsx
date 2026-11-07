@@ -37,7 +37,7 @@ export const SoundsTab: React.FC<SoundsTabProps> = ({
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>Calming Sounds</Text>
+        <Text style={styles.title} accessibilityRole="header">Calming Sounds</Text>
         <Text style={styles.sub}>Select a sound — it stays with you across the whole app.</Text>
       </View>
       <View style={styles.grid}>
@@ -47,6 +47,9 @@ export const SoundsTab: React.FC<SoundsTabProps> = ({
             style={[styles.card, soundPlaying === s.id && styles.cardActive]}
             onPress={() => playSound(s.id as SoundId)}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityState={{ selected: soundPlaying === s.id }}
+            accessibilityLabel={`${s.label} — ${s.description}${soundPlaying === s.id ? ", playing" : ""}`}
           >
             <Text style={styles.icon}>{s.icon}</Text>
             <Text style={styles.name}>{s.label}</Text>
@@ -122,12 +125,12 @@ const styles = StyleSheet.create({
   playingText: { fontFamily: FONT_SANS_LIGHT, fontSize: 12.5, color: "rgba(168,230,207,0.6)", marginBottom: 12 },
   volRow: { flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 16 },
   timerDisp: { textAlign: "center", fontFamily: FONT_SERIF, fontSize: 26, color: "#CFA7FF", marginBottom: 8 },
-  timerLabel: { opacity: 0.5, fontSize: 12, fontFamily: FONT_SANS_LIGHT, marginBottom: 8 },
+  timerLabel: { opacity: 0.8, fontSize: 12, fontFamily: FONT_SANS_LIGHT, marginBottom: 8 },
   timerRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   timerBtn: { backgroundColor: "rgba(207,167,255,0.055)", borderWidth: 1, borderColor: "rgba(207,167,255,0.1)", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 },
   timerBtnA: { backgroundColor: "rgba(124,92,191,0.18)", borderColor: "rgba(207,167,255,0.28)" },
-  timerBtnText: { color: "rgba(207,167,255,0.52)", fontFamily: FONT_SANS_LIGHT, fontSize: 12.5 },
+  timerBtnText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 12.5 },
   timerBtnTextA: { color: COLORS.text },
   stopBtn: { width: "100%", backgroundColor: "rgba(207,167,255,0.06)", borderWidth: 1, borderColor: "rgba(207,167,255,0.1)", borderRadius: 10, paddingVertical: 10, marginTop: 12, alignItems: "center" },
-  stopBtnText: { color: "rgba(207,167,255,0.45)", fontFamily: FONT_SANS_LIGHT, fontSize: 13 },
+  stopBtnText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 13 },
 });

@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { SFUser } from "./types";
+import { firstTime } from "./time";
 
 // ============================================================
 // PROFILE / USERS API — backend wiring for /users/me endpoints.
@@ -21,15 +22,26 @@ import { SFUser } from "./types";
 // ============================================================
 
 function normalizeUser(raw: any, existing: SFUser): SFUser {
+  const verified =
+    raw.isVerified ?? raw.emailVerified ?? raw.isEmailVerified ?? raw.email_verified ?? raw.verified;
+  const role = raw.role ?? raw.userRole;
   return {
     ...existing,
-    email: raw.email ?? existing.email,
+    email: raw.email ?? raw.userEmail ?? existing.email,
     name: raw.name ?? raw.displayName ?? existing.name,
     avatar: raw.avatar ?? raw.avatarUrl ?? raw.photoURL ?? existing.avatar,
-    createdAt: raw.createdAt ?? raw.created ?? existing.createdAt,
+    createdAt: raw.createdAt || raw.created ? firstTime(raw.createdAt, raw.created) : existing.createdAt,
     logins: raw.logins ?? raw.loginCount ?? existing.logins,
-    lastActive: raw.lastActive ?? raw.lastActiveAt ?? existing.lastActive,
+    lastActive:
+      raw.lastActive || raw.lastActiveAt
+        ? firstTime(raw.lastActive, raw.lastActiveAt)
+        : existing.lastActive,
     id: raw.id ?? raw._id ?? raw.uid ?? existing.id,
+    // Only overwrite the cached verification/role when the server states them,
+    // so a profile response that omits them cannot erase what login returned.
+    isVerified: typeof verified === "boolean" ? verified : existing.isVerified,
+    role: typeof role === "string" && role.trim() ? role.trim().toLowerCase() : existing.role,
+    isCeo: raw.isCeo === true ? true : existing.isCeo,
   };
 }
 

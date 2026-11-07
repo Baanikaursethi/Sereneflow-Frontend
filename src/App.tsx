@@ -12,10 +12,20 @@ import { Forgot } from "./screens/Forgot";
 import { Terms, Privacy } from "./screens/Legal";
 import { Main } from "./screens/Main";
 import { store, hydrateStore } from "./lib/store";
-import { getRemember, setRemember, logout as apiLogout, isAuthenticated } from "./lib/auth";
-import { getToken } from "./lib/api";
+import { getRemember, logout as apiLogout } from "./lib/auth";
+import { hydrateToken } from "./lib/secureStore";
+import {
+  beginSession,
+  cacheUser,
+  endSession,
+  getCachedUser,
+  hasSession,
+  purgeLocalUserData,
+} from "./lib/session";
+import { ApiError, setUnauthorizedHandler } from "./lib/api";
+import { fetchMyProfile } from "./lib/profile";
 import { COLORS } from "./lib/theme";
-import { NavState, SFUser } from "./lib/types";
+import { NavState, Screen, SFUser } from "./lib/types";
 
 // ============================================================
 // APP ROOT — ported from the original's window.history-based
@@ -27,6 +37,18 @@ import { NavState, SFUser } from "./lib/types";
 // hardware back button via BackHandler to call the same goBack()
 // logic — preserving the original navigation model/behavior,
 // only swapping the underlying platform hook.
+//
+// SECURITY: the app is a single state machine, so "routes" are not
+// URLs — there is no address a user could copy to reach someone
+// else's journal, moods or profile, and no private page can be
+// opened in a browser or restored from history. What this file adds
+// is the equivalent protection for the in-app state machine:
+//   * the main app is only rendered when a session token exists,
+//   * a stored token is validated against /users/me at launch, so an
+//     expired/revoked token cannot expose cached private screens,
+//   * any 401 from the backend forces a full sign-out,
+//   * logout/account switch wipes the token and every cached private
+//     value (see lib/session.ts).
 // ============================================================
 
 const initialNav: NavState = {
@@ -38,6 +60,17 @@ const initialNav: NavState = {
   prevScreen: null,
 };
 
+const EXPIRED_NOTICE = "Your session has expired. Please sign in again.";
+
+const mainState = (user: SFUser): NavState => ({
+  screen: "main",
+  user,
+  navTab: "home",
+  subPage: null,
+  pauseModeId: null,
+  prevScreen: null,
+});
+
 export default function App() {
   const [navState, setNavState] = useState<NavState>(initialNav);
   const [ready, setReady] = useState(false);
@@ -45,6 +78,8 @@ export default function App() {
   // separate from navState.user so verify->main only happens after
   // the code is confirmed.
   const [pendingUser, setPendingUser] = useState<SFUser | null>(null);
+  // Shown on the Login screen, e.g. after an expired session.
+  const [notice, setNotice] = useState("");
 
   const [fontsLoaded] = useFonts({
     CormorantGaramond_400Regular,
@@ -61,48 +96,121 @@ export default function App() {
   useEffect(() => {
     (async () => {
       await hydrateStore();
+      await hydrateToken();
+      // Earlier builds wrote the JWT through the generic key/value store;
+      // make sure no plaintext copy is left behind after migration.
+      store.remove("sf_token");
       setReady(true);
     })();
   }, []);
 
-  // Initial splash timer & remember-me auto-login. Same UX timing/flow as
-  // before, but now restores the session from the persisted JWT + last-known
-  // user profile (set by login/signup) instead of the local mock users map.
+  // Any 401 from the backend ends the session immediately: clear the token,
+  // cached profile and volatile caches, then return to sign-in.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      void endSession();
+      setPendingUser(null);
+      setNotice(EXPIRED_NOTICE);
+      setNavState({ ...initialNav, screen: "login" });
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
+  // Splash timer & remember-me auto-login. Same UX timing/flow as before, but
+  // the persisted token is now validated against the backend before any
+  // private screen is shown.
   useEffect(() => {
     if (!ready) return;
-    const t = setTimeout(() => {
-      const rem = getRemember();
-      const cachedUser: SFUser | null = store.get("sf_current_user", null);
-      if (rem && isAuthenticated() && cachedUser && cachedUser.email === rem) {
-        pushNav({ screen: "main", user: cachedUser, navTab: "home", subPage: null, pauseModeId: null });
-      } else {
-        pushNav({ screen: "login", user: null, subPage: null });
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      const remembered = getRemember();
+      const cached = getCachedUser();
+      const canRestore =
+        !!remembered &&
+        hasSession() &&
+        !!cached &&
+        cached.email.toLowerCase() === remembered.toLowerCase();
+
+      if (!canRestore) {
+        if (!cancelled) setNavState({ ...initialNav, screen: "login" });
+        return;
+      }
+
+      try {
+        const fresh = await fetchMyProfile(cached as SFUser);
+        if (cancelled) return;
+        // A valid token that belongs to a different account than the cached
+        // profile (shared device, swapped token) must never be merged with it:
+        // the journal is namespaced per email and would otherwise be shown
+        // under the wrong identity. Force a fresh sign-in instead.
+        if (fresh.email.toLowerCase() !== (cached as SFUser).email.toLowerCase()) {
+          await endSession();
+          if (cancelled) return;
+          setNotice(EXPIRED_NOTICE);
+          setNavState({ ...initialNav, screen: "login" });
+          return;
+        }
+        cacheUser(fresh);
+        setNotice("");
+        setNavState(mainState(fresh));
+      } catch (e) {
+        if (cancelled) return;
+        const status = e instanceof ApiError ? e.status : -1;
+        if (status === 401 || status === 403) {
+          await endSession();
+          if (cancelled) return;
+          setNotice(EXPIRED_NOTICE);
+          setNavState({ ...initialNav, screen: "login" });
+        } else if (status === 0) {
+          // Offline: the remembered session stays usable (journal, sounds and
+          // breathing are local); server-backed screens show their own errors.
+          setNavState(mainState(cached as SFUser));
+        } else {
+          setNavState({ ...initialNav, screen: "login" });
+        }
       }
     }, 2500);
-    return () => clearTimeout(t);
-  }, [ready, pushNav]);
 
-  const login = (u: SFUser) => {
-    store.set("sf_current_user", u);
-    pushNav({ screen: "main", user: u, navTab: "home", subPage: null, pauseModeId: null });
-  };
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [ready]);
 
-  const logout = () => {
-    apiLogout();
-    setRemember(null);
-    store.remove("sf_current_user");
-    pushNav({ screen: "login", user: null, subPage: null });
-  };
+  const login = useCallback((u: SFUser) => {
+    // Drops the previous account's volatile caches if this is a different user.
+    beginSession(u);
+    setPendingUser(null);
+    setNotice("");
+    setNavState(mainState(u));
+  }, []);
 
-  const deleteAccount = () => {
+  const logout = useCallback(() => {
+    // Start the server-side revocation while the token is still available,
+    // then clear local state synchronously — a failed network call must never
+    // leave a session (or cached private data) behind.
+    void apiLogout();
+    void endSession();
+    setPendingUser(null);
+    setNotice("");
+    setNavState({ ...initialNav, screen: "login" });
+  }, []);
+
+  const deleteAccount = useCallback(() => {
     // Backend deletion is performed by the caller (ProfileTab) before this
     // is invoked, so by the time this runs the account is already gone
-    // server-side — this only handles local session cleanup + navigation.
-    apiLogout();
-    setRemember(null);
-    store.remove("sf_current_user");
-    pushNav({ screen: "login", user: null, subPage: null });
-  };
+    // server-side. Locally we must also erase the device-only data (journal
+    // entries, saved Mind Drops) — otherwise "your data is deleted" is false
+    // for everything this app keeps on the device.
+    const email = navState.user?.email ?? getCachedUser()?.email ?? "";
+    purgeLocalUserData(email);
+    void apiLogout();
+    void endSession();
+    setPendingUser(null);
+    setNotice("");
+    setNavState({ ...initialNav, screen: "login" });
+  }, [navState.user]);
 
   const goBack = useCallback(() => {
     setNavState((prev) => {
@@ -133,13 +241,19 @@ export default function App() {
     return <View style={styles.loadingScreen} />;
   }
 
+  // Route guard: the authenticated area is unreachable without a live session,
+  // even if navState was somehow left on "main" (e.g. token cleared elsewhere).
+  const authenticated = navState.screen === "main" && !!navState.user && hasSession();
+  const screen: Screen = navState.screen === "main" && !authenticated ? "login" : navState.screen;
+
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
       <View style={styles.root}>
-        {navState.screen === "splash" && <Splash />}
-        {navState.screen === "login" && (
+        {screen === "splash" && <Splash />}
+        {screen === "login" && (
           <Login
+            notice={notice}
             onLogin={(u) => {
               if (u.isVerified) {
                 login(u);
@@ -148,13 +262,16 @@ export default function App() {
                 pushNav({ screen: "verify", prevScreen: "login" });
               }
             }}
-            onSignup={() => pushNav({ screen: "signup" })}
+            onSignup={() => {
+              setNotice("");
+              pushNav({ screen: "signup" });
+            }}
             onForgot={() => pushNav({ screen: "forgot" })}
             onTerms={() => pushNav({ screen: "terms", prevScreen: "login" })}
             onPrivacy={() => pushNav({ screen: "privacy", prevScreen: "login" })}
           />
         )}
-        {navState.screen === "signup" && (
+        {screen === "signup" && (
           <Signup
             onSignup={(u) => {
               if (u.isVerified) {
@@ -169,11 +286,10 @@ export default function App() {
             onPrivacy={() => pushNav({ screen: "privacy", prevScreen: "signup" })}
           />
         )}
-        {navState.screen === "verify" && pendingUser && (
+        {screen === "verify" && pendingUser && (
           <Verify
             email={pendingUser.email}
             onVerified={(verifiedUser) => {
-              setPendingUser(null);
               login(verifiedUser);
             }}
             onBack={() => {
@@ -182,13 +298,16 @@ export default function App() {
             }}
           />
         )}
-        {navState.screen === "forgot" && <Forgot onBack={goBack} />}
-        {navState.screen === "terms" && <Terms onBack={goBack} />}
-        {navState.screen === "privacy" && <Privacy onBack={goBack} />}
-        {navState.screen === "main" && navState.user && (
+        {screen === "forgot" && <Forgot onBack={goBack} />}
+        {screen === "terms" && <Terms onBack={goBack} />}
+        {screen === "privacy" && <Privacy onBack={goBack} />}
+        {authenticated && navState.user && (
           <Main
             user={navState.user}
-            setUser={(u) => setNavState((prev) => ({ ...prev, user: u }))}
+            setUser={(u) => {
+              cacheUser(u);
+              setNavState((prev) => ({ ...prev, user: u }));
+            }}
             navTab={navState.navTab}
             subPage={navState.subPage}
             pauseModeId={navState.pauseModeId}

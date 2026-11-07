@@ -2,10 +2,17 @@
 // SHARED TYPES
 // ============================================================
 
+/**
+ * The signed-in user, as stored in app memory / the user cache.
+ *
+ * Deliberately has no `password` and no `token` field: credentials are
+ * never held in this object (the JWT lives in the platform secure store —
+ * see lib/secureStore.ts), so it can be cached and passed around freely
+ * without any secret travelling with it.
+ */
 export interface SFUser {
   email: string;
   name: string;
-  password: string;
   avatar: string | null;
   createdAt: string;
   logins: number;
@@ -13,8 +20,12 @@ export interface SFUser {
   // Backend-auth additions (additive — existing local-mock fields above
   // are kept so untouched screens reading user.email/name/avatar keep working).
   id?: string;
-  token?: string;
   isVerified?: boolean;
+  // Server-issued role ("ceo" | "user" | ...). Only ever used to decide
+  // WHICH admin/ moderation controls to show — never as proof of authority.
+  // The backend enforces every privileged action independently.
+  role?: string;
+  isCeo?: boolean;
 }
 
 export type Screen = "splash" | "login" | "signup" | "verify" | "forgot" | "terms" | "privacy" | "main";

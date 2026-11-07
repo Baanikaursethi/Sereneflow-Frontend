@@ -28,7 +28,7 @@ export const DropsPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ user
     <View style={styles.subpage}>
       <View style={styles.header}>
         <TextButton title="← Back" onPress={onBack} />
-        <Text style={styles.headerTitle}>Mind Drops</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Mind Drops</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.tabs}>
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: "row", gap: 8, marginBottom: 20 },
   tab: { borderWidth: 1, borderColor: "rgba(207,167,255,0.11)", borderRadius: 22, paddingVertical: 8, paddingHorizontal: 18 },
   tabA: { backgroundColor: "rgba(124,92,191,0.18)", borderColor: "rgba(207,167,255,0.28)" },
-  tabText: { color: "rgba(207,167,255,0.45)", fontFamily: FONT_SANS_LIGHT, fontSize: 13 },
+  tabText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 13 },
   tabTextA: { color: COLORS.text },
   dropBig: {
     backgroundColor: "rgba(124,92,191,0.16)",
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   dropBigText: { fontFamily: FONT_SERIF, fontSize: 20, fontStyle: "italic", color: COLORS.text, lineHeight: 30, marginBottom: 20, textAlign: "center" },
   favBtn: { borderWidth: 1, borderColor: "rgba(207,167,255,0.1)", backgroundColor: "rgba(207,167,255,0.06)", borderRadius: 9, paddingVertical: 7, paddingHorizontal: 13 },
   favActive: {},
-  favBtnText: { color: "rgba(207,167,255,0.52)", fontFamily: FONT_SANS_LIGHT, fontSize: 13 },
+  favBtnText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 13 },
   favActiveText: { color: "#FF9BD4" },
   shuffleBtn: {
     backgroundColor: "rgba(124,92,191,0.2)",
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dropRowText: { fontFamily: FONT_SANS_LIGHT, color: "#C4AFDE", fontSize: 13.5, lineHeight: 20, flex: 1 },
-  favSm: { fontSize: 17, color: "rgba(207,167,255,0.3)" },
+  favSm: { fontSize: 17, color: "rgba(207,167,255,0.72)" },
   empty: { alignItems: "center", padding: 30 },
-  emptyText: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 15, color: "rgba(207,167,255,0.38)" },
+  emptyText: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 15, color: "rgba(207,167,255,0.72)" },
 });

@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   noticeCare: { backgroundColor: "rgba(168,230,207,0.05)", borderColor: "rgba(168,230,207,0.18)" },
   title: { fontFamily: FONT_SERIF, fontSize: 16, fontWeight: "500", color: "#E8D8FF", marginBottom: 8 },
   body: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "#C4AFDE", lineHeight: 21, marginBottom: 8 },
-  extra: { fontFamily: FONT_SANS_LIGHT, fontSize: 12.5, color: "rgba(207,167,255,0.55)", lineHeight: 21 },
+  extra: { fontFamily: FONT_SANS_LIGHT, fontSize: 12.5, color: "rgba(207,167,255,0.72)", lineHeight: 21 },
   resources: { marginTop: 12, gap: 8 },
   resource: {
     backgroundColor: "rgba(255,255,255,0.03)",
@@ -47,6 +47,6 @@ const styles = StyleSheet.create({
     padding: 10,
     gap: 2,
   },
-  resLabel: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.45)" },
+  resLabel: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.72)" },
   resValue: { fontFamily: FONT_SERIF, fontSize: 15, fontStyle: "italic", color: "#A8E6CF" },
 });

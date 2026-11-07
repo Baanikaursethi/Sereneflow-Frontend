@@ -2,7 +2,7 @@
   "expo": {
     "name": "Serene Flow",
     "slug": "sereneflow",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -17,7 +17,7 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.serene_flow.app",
+      "bundleIdentifier": "com.sereneflow.app",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Serene Flow uses your photo library so you can set a profile picture.",
         "UIBackgroundModes": [
@@ -34,7 +34,12 @@
       "permissions": [
         "READ_EXTERNAL_STORAGE"
       ],
-      "versionCode": 2
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "versionCode": 10
     },
     "web": {
       "favicon": "./assets/icon.png",

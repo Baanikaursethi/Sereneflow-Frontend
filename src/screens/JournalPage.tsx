@@ -5,6 +5,10 @@ import { store } from "../lib/store";
 import { COLORS, FONT_SERIF, FONT_SANS_LIGHT } from "../lib/theme";
 import { SFUser, JournalEntry } from "../lib/types";
 
+// Keeps a single entry within what AsyncStorage can hold comfortably; the
+// journal is device-local, so an unbounded entry could silently fail to save.
+const MAX_ENTRY_LENGTH = 20000;
+
 const PROMPTS = [
   "What's resting on your mind today?",
   "What would you like to let go of?",
@@ -113,7 +117,7 @@ export const JournalPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ us
     <View style={styles.subpage}>
       <View style={styles.header}>
         <TextButton title="← Back" onPress={onBack} />
-        <Text style={styles.headerTitle}>Journal</Text>
+        <Text style={styles.headerTitle} accessibilityRole="header">Journal</Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         {!writing ? (
@@ -156,7 +160,9 @@ export const JournalPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ us
               value={text}
               onChangeText={setText}
               placeholder={"Title...\nBegin whenever you're ready..."}
-              placeholderTextColor="rgba(207,167,255,0.22)"
+              placeholderTextColor="rgba(207,167,255,0.66)"
+              accessibilityLabel="Journal entry — first line becomes the title"
+              maxLength={MAX_ENTRY_LENGTH}
               multiline
               textAlignVertical="top"
             />
@@ -198,10 +204,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
-  newBtnText: { color: "rgba(207,167,255,0.55)", fontFamily: FONT_SANS_LIGHT, fontSize: 14 },
+  newBtnText: { color: "rgba(207,167,255,0.72)", fontFamily: FONT_SANS_LIGHT, fontSize: 14 },
   empty: { alignItems: "center", padding: 36 },
-  emptyMain: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 17, color: "rgba(207,167,255,0.38)" },
-  emptySub: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.38)", marginTop: 6 },
+  emptyMain: { fontFamily: FONT_SERIF, fontStyle: "italic", fontSize: 17, color: "rgba(207,167,255,0.72)" },
+  emptySub: { fontFamily: FONT_SANS_LIGHT, fontSize: 13, color: "rgba(207,167,255,0.72)", marginTop: 6 },
   jCard: {
     backgroundColor: COLORS.cardBg,
     borderWidth: 1,
@@ -211,9 +217,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   jListTitle: { fontFamily: FONT_SERIF, fontWeight: "600", fontSize: 18, color: COLORS.text },
-  jDate: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.3)" },
+  jDate: { fontFamily: FONT_SANS_LIGHT, fontSize: 11, color: "rgba(207,167,255,0.72)" },
   jPrompt: { fontFamily: FONT_SERIF, fontSize: 17, fontStyle: "italic", color: "#C4AFDE", marginBottom: 6, opacity: 0.75 },
-  jHint: { fontFamily: FONT_SANS_LIGHT, fontSize: 12, color: "rgba(207,167,255,0.35)", marginBottom: 12 },
+  jHint: { fontFamily: FONT_SANS_LIGHT, fontSize: 12, color: "rgba(207,167,255,0.72)", marginBottom: 12 },
   textarea: {
     backgroundColor: "rgba(255,255,255,0.035)",
     borderWidth: 1,
@@ -228,7 +234,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", gap: 10, marginTop: 12 },
   detailTitle: { fontFamily: FONT_SERIF, fontWeight: "700", fontSize: 26, color: COLORS.text, marginBottom: 6 },
-  detailDate: { fontFamily: FONT_SANS_LIGHT, fontSize: 12, color: "rgba(207,167,255,0.35)", marginBottom: 18 },
+  detailDate: { fontFamily: FONT_SANS_LIGHT, fontSize: 12, color: "rgba(207,167,255,0.72)", marginBottom: 18 },
   detailContent: { fontFamily: FONT_SANS_LIGHT, fontSize: 15, color: "#D4C4F0", lineHeight: 26 },
   actionsRow: { flexDirection: "row", gap: 7, marginTop: 18 },
 });
