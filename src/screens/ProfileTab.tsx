@@ -4,7 +4,6 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Input, PillButton, SmButton } from "../components/UI";
 import { CeoBadge } from "../components/SFLogo";
-import { store } from "../lib/store";
 import { fetchMyProfile, updateMyName, updateMyAvatar, logMyActivity, deleteMyAccount } from "../lib/profile";
 import { ApiError } from "../lib/api";
 import { CEO_EMAIL } from "../data/content";
@@ -63,11 +62,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     setSaveErr("");
     try {
       const updated = await updateMyName(name, user);
-      const users = store.get("sf_users", {});
-      if (users[user.email]) {
-        users[user.email].name = name;
-        store.set("sf_users", users);
-      }
       setUser(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -111,11 +105,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       const dataUri = `data:image/jpeg;base64,${manipulated.base64}`;
       setAvUploading(true);
       const updated = await updateMyAvatar(dataUri, user);
-      const users = store.get("sf_users", {});
-      if (users[user.email]) {
-        users[user.email].avatar = updated.avatar;
-        store.set("sf_users", users);
-      }
       setUser(updated);
     } catch (err) {
       setAvError(err instanceof ApiError ? err.message : "An error occurred while selecting photo.");

@@ -112,7 +112,7 @@ android {
         }
     }
 
-    // Required for 16 KB memory page size support (Android 15+)
+    // Do not compress tflite model files (harmless no-op if tflite is unused).
     androidResources {
         noCompress 'tflite'
     }

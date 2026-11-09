@@ -1,5 +1,7 @@
 import { Audio } from "expo-av";
-import * as FileSystem from "expo-file-system";
+// expo-file-system SDK 19 (Expo SDK 54) moved legacy APIs to the /legacy entry.
+// cacheDirectory, writeAsStringAsync, and EncodingType are still available there.
+import * as FileSystem from "expo-file-system/legacy";
 import { getSoundWavBase64, SoundId } from "./soundSynth";
 
 // ============================================================

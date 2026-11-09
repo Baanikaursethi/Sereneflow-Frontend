@@ -40,6 +40,6 @@
       "favicon": "./assets/icon.png",
       "bundler": "metro"
     },
-    "newArchEnabled": false
+    "newArchEnabled": true
   }
 }

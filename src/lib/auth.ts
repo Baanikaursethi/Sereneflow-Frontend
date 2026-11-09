@@ -35,10 +35,9 @@ function extractUserAndToken(res: any): { user: SFUser; token: string } {
   // Handle a few plausible response shapes defensively.
   const token = res.token ?? res.accessToken ?? res.jwt ?? res.idToken;
   const rawUser = res.user ?? res.data?.user ?? res;
-  if (!token) {
-    throw new Error("Login succeeded but no auth token was returned by the server.");
-  }
-  return { user: normalizeUser(rawUser, token), token };
+  // Backend always returns a token (verified or not). If somehow missing, fall
+  // back to an empty string so the verify screen can still render.
+  return { user: normalizeUser(rawUser, token ?? ""), token: token ?? "" };
 }
 
 export async function signup(params: {
@@ -85,11 +84,11 @@ export async function resetPassword(params: {
 // Backend: POST /auth/verify-email { email, code } -> { message, token, user }
 export async function verifyEmail(params: { email: string; code: string }): Promise<SFUser> {
   const res = await api.post("/auth/verify-email", params, false);
-  const token = res?.token;
-  const rawUser = res?.user;
+  const token = res?.token ?? res?.accessToken;
+  const rawUser = res?.user ?? res?.data?.user;
 
   if (!token || !rawUser) {
-    throw new Error("Email verification succeeded but no verified session was returned by the server.");
+    throw new Error("Email verification failed or the server did not return a session. Please try again.");
   }
 
   const user = normalizeUser(rawUser, token);

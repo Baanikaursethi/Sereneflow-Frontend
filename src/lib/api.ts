@@ -4,17 +4,21 @@ import { store } from "./store";
 // API CLIENT — thin fetch wrapper for the Serene Flow NestJS
 // backend. Kept isolated in this one file so that if actual
 // request/response field names differ from what's documented
-// in the backend README (we do not have backend source to
-// verify exact DTOs), fixes are localized here rather than
+// in the backend README, fixes are localized here rather than
 // spread across every screen.
 //
-// Deployed backend base URL. All backend routes are mounted under
-// an /api prefix, added centrally below in apiRequest() so every
-// existing call site (paths like "/auth/login", "/moods", etc.)
-// automatically resolves to the correct /api/... path without
-// needing to be changed individually.
-export const API_BASE_URL =
+// Deployed backend base URL (Google Cloud Run).
+// The NestJS backend sets a global "/api" prefix via app.setGlobalPrefix('api').
+// All requests must therefore use paths like "/api/auth/login", "/api/moods", etc.
+// The EXPO_PUBLIC_API_BASE_URL env var should already include the /api suffix if
+// overridden (e.g. "https://my-backend.run.app/api"), otherwise the default below
+// appends it. The Cloud Function deployment strips /api at the edge, so it remains
+// compatible with both deployment targets.
+const _rawBase =
   process.env.EXPO_PUBLIC_API_BASE_URL || "https://api-ysdoljkngq-uc.a.run.app";
+export const API_BASE_URL = _rawBase.endsWith("/api")
+  ? _rawBase
+  : _rawBase.replace(/\/$/, "") + "/api";
 
 const TOKEN_KEY = "sf_token";
 

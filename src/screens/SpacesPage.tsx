@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch, ActivityIndicator, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch, ActivityIndicator, Image, TouchableWithoutFeedback } from "react-native";
 import { TextButton, SmButton, PillButton } from "../components/UI";
 import { ModerationNotice } from "../components/ModerationNotice";
 import { CeoBadge } from "../components/SFLogo";
@@ -48,6 +48,11 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
   // Only gates which buttons the client shows — the backend enforces the real
   // rule (moderation by sereneflow27@gmail.com only) independent of this.
   const isCeo = user.email === CEO_EMAIL;
+
+  const dismissMenus = () => {
+    if (menuOpen) setMenuOpen(null);
+    if (replyMenuOpen) setReplyMenuOpen(null);
+  };
 
   const loadPosts = async () => {
     setLoading(true);
@@ -236,7 +241,8 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
         <TextButton title="← Back" onPress={onBack} />
         <Text style={styles.headerTitle}>Spaces</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.body}>
+      <TouchableWithoutFeedback onPress={dismissMenus} accessible={false}>
+        <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.banner}>
           <Text style={styles.bannerText}>🌸 A safe space to share. You're not alone.</Text>
         </View>
@@ -514,6 +520,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
         </>
         )}
       </ScrollView>
+      </TouchableWithoutFeedback>
     </View>
   );
 };

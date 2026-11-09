@@ -60,7 +60,7 @@ export const Terms: React.FC<{ onBack: () => void }> = ({ onBack }) => (
       <P>We may update these Terms from time to time. Continued use of Serene Flow after changes are made constitutes acceptance of the updated Terms.</P>
     </Section>
     <Section h="10. Contact">
-      <P>Questions about these Terms? Email hello@sereneflow.app</P>
+      <P>Questions about these Terms? Email sereneflow27@gmail.com</P>
     </Section>
     <View style={{ height: 30 }} />
   </ScrollView>
@@ -79,40 +79,47 @@ export const Privacy: React.FC<{ onBack: () => void }> = ({ onBack }) => (
       <P>Serene Flow was built as a calm, private space for self-reflection. Your privacy and emotional safety are central to how the app works — not an afterthought.</P>
     </Section>
     <Section h="2. Information We Collect">
-      <P>• Account information: your name, email address, and password, which you provide when creating an account.</P>
+      <P>• Account information: your name, email address, and password (stored securely as a hashed value), which you provide when creating an account.</P>
       <P>• Profile picture: if you choose to upload one.</P>
-      <P>• Wellness data: mood check-ins, journal entries, saved Mind Drops, and breathing exercise activity.</P>
-      <P>• Spaces content: posts, replies, and reactions you choose to share, including whether you post anonymously.</P>
-      <P>• Basic usage activity: login timestamps and sign-in counts, used to keep your account secure and to understand overall app usage.</P>
+      <P>• Wellness data: mood check-ins and breathing exercise selections you record within the app.</P>
+      <P>• Journal entries: text you write and save in the Journal feature. These are private to you.</P>
+      <P>• Spaces content: posts and replies you choose to share, including whether you post anonymously.</P>
+      <P>• Basic usage activity: login timestamps and sign-in counts, used to keep your account secure.</P>
     </Section>
     <Section h="3. How We Use This Information">
-      <P>• To provide and personalize the core features of the app — journaling, mood tracking, Mind Drops, breathing exercises, and Spaces.</P>
+      <P>• To provide the core features of the app — journaling, mood tracking, breathing exercises, and Spaces.</P>
       <P>• To keep your account secure and allow you to sign in.</P>
-      <P>• To understand overall app usage in aggregate (e.g. how many people use the app, how often), so we can improve Serene Flow. This analytics data is aggregated and does not include the content of your journal entries or private messages.</P>
+      <P>• To understand overall app usage in aggregate (for example, how many people use the app and how often), so we can improve Serene Flow. This data is aggregated and does not include the content of your journal entries.</P>
     </Section>
     <Section h="4. Journal Privacy">
       <P>Your journal entries are private to you. They are never shown to other users, never displayed in Spaces, and are not reviewed by anyone — including our team — as part of normal app operation.</P>
     </Section>
     <Section h="5. Spaces & Anonymous Posting">
-      <P>When you post in Spaces, you can choose to share anonymously. If you post anonymously, your name and identity are not displayed to other users. All Spaces posts are reviewed by an automatic safety check before publishing to help keep the space supportive and safe — see our Terms & Conditions for details.</P>
+      <P>When you post in Spaces, you can choose to share anonymously. If you post anonymously, your name and identity are not displayed to other users. All Spaces posts pass through an automatic content check before publishing to help keep the space supportive and safe — see our Terms & Conditions for the content rules.</P>
     </Section>
-    <Section h="6. Your Controls">
+    <Section h="6. Data Storage">
+      <P>Your account and app data are stored on Google Cloud infrastructure (Firebase / Cloud Run). Data is stored in the region your Cloud project is configured for. We do not store your data locally on your device beyond what is needed to keep you signed in between sessions.</P>
+    </Section>
+    <Section h="7. Your Controls">
       <P>• You can edit your display name and profile picture at any time from your Profile.</P>
       <P>• You can edit or delete your own journal entries at any time.</P>
-      <P>• You can edit or delete your own Spaces posts at any time.</P>
-      <P>• You can delete your account entirely from Profile. When you do, your account information, journal entries, and saved preferences are permanently removed.</P>
+      <P>• You can edit or delete your own Spaces posts and replies at any time.</P>
+      <P>• You can delete your account entirely from Profile. When you do, your account information, journal entries, and saved preferences are permanently removed from our servers.</P>
     </Section>
-    <Section h="7. Account Deletion & Data Removal">
-      <P>Deleting your account is permanent. Once deleted, your account details and personal journal data are removed and cannot be recovered. Spaces posts you've shared may remain if other users have replied to them, but will no longer be linked to your account or identity.</P>
+    <Section h="8. Account Deletion & Data Removal">
+      <P>Deleting your account is permanent. Once deleted, your account details and personal journal data are removed and cannot be recovered. Spaces posts you have shared may remain visible if other users have replied to them, but they will no longer be linked to your account or identity.</P>
     </Section>
-    <Section h="8. We Do Not Sell Your Data">
+    <Section h="9. We Do Not Sell Your Data">
       <P>Serene Flow does not sell, rent, or trade your personal information to third parties for marketing or any other purpose.</P>
     </Section>
-    <Section h="9. Safety Note">
+    <Section h="10. Third-Party Services">
+      <P>Serene Flow uses Google Cloud services (including Firebase Authentication and Cloud Run) to operate. These services process data according to Google's own privacy and security policies. We do not share your data with any other third parties.</P>
+    </Section>
+    <Section h="11. Safety Note">
       <P>If you are experiencing a crisis or having thoughts of self-harm, please reach out to a trusted person in your life or a mental health professional. Serene Flow is a wellness tool and is not equipped to provide emergency support.</P>
     </Section>
-    <Section h="10. Contact">
-      <P>Privacy questions or requests: privacy@sereneflow.app</P>
+    <Section h="12. Contact">
+      <P>Privacy questions or requests: sereneflow27@gmail.com</P>
     </Section>
     <View style={{ height: 30 }} />
   </ScrollView>
