@@ -8,8 +8,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:web": "expo export --platform web --clear",
-    "deploy:dev": "npm run build:web && npx firebase deploy --only hosting -P dev",
-    "deploy:prod": "npm run build:web && npx firebase deploy --only hosting -P prod"
+    "deploy:dev": "npm run build:web && npx --yes --package=firebase-tools@15.35.0 firebase deploy --only hosting -P dev",
+    "deploy:prod": "npm run build:web && npx --yes --package=firebase-tools@15.35.0 firebase deploy --only hosting -P prod"
   },
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.2.3",
