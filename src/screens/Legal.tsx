@@ -107,7 +107,7 @@ export const Privacy: React.FC<{ onBack: () => void }> = ({ onBack }) => (
       <P>• You can delete your account entirely from Profile. When you do, your account information, journal entries, and saved preferences are permanently removed from our servers.</P>
     </Section>
     <Section h="8. Account Deletion & Data Removal">
-      <P>Deleting your account is permanent. Once deleted, your account details and personal journal data are removed and cannot be recovered. Spaces posts you have shared may remain visible if other users have replied to them, but they will no longer be linked to your account or identity.</P>
+      <P>Deleting your account is permanent. Once deleted, your account information, journal entries, mood check-ins, and Spaces posts you have authored are all permanently removed. Any replies you have left on other users' posts may remain visible but will no longer be linked to your account or identity.</P>
     </Section>
     <Section h="9. We Do Not Sell Your Data">
       <P>Serene Flow does not sell, rent, or trade your personal information to third parties for marketing or any other purpose.</P>

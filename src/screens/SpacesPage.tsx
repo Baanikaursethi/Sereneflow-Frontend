@@ -101,6 +101,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
   // again removes just yours, a different user adding the same reaction
   // increases the count, and the result is correct after a refresh.
   const react = async (pid: string, emoji: string) => {
+    dismissMenus();
     const reactKey = pid + "|" + emoji;
     if (reactingKey) return;
     setReactingKey(reactKey);
@@ -117,6 +118,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
 
   const reply = async (pid: string) => {
     if (!replyText.trim()) return;
+    dismissMenus();
     setActionErr("");
     try {
       const created = await createSpacesReply(pid, { text: replyText.trim(), anonymous: replyAnon });
@@ -246,7 +248,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
         <View style={styles.banner}>
           <Text style={styles.bannerText}>🌸 A safe space to share. You're not alone.</Text>
         </View>
-        <TouchableOpacity style={styles.newBtn} onPress={() => setWriting(!writing)}>
+        <TouchableOpacity style={styles.newBtn} onPress={() => { dismissMenus(); setWriting(!writing); }}>
           <Text style={styles.newBtnText}>{writing ? "Cancel" : "+ Share something..."}</Text>
         </TouchableOpacity>
 
@@ -426,7 +428,7 @@ export const SpacesPage: React.FC<{ user: SFUser; onBack: () => void }> = ({ use
                       </TouchableOpacity>
                     );
                   })}
-                  <TouchableOpacity style={styles.reactBtn} onPress={() => setReplyTo(replyTo === p.id ? null : p.id)}>
+                  <TouchableOpacity style={styles.reactBtn} onPress={() => { dismissMenus(); setReplyTo(replyTo === p.id ? null : p.id); }}>
                     <Text style={styles.reactLabel}>💬 Reply</Text>
                   </TouchableOpacity>
                 </View>
