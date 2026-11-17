@@ -47,6 +47,16 @@ interface RequestOptions {
   auth?: boolean; // attach Authorization header (default true)
 }
 
+// Global 401 handler — registered by App.tsx so that any authenticated
+// request that returns 401 (expired or invalidated JWT) automatically
+// clears the stale token and returns the user to the login screen.
+// This handles the case where a user has a token signed with a previous
+// JWT_SECRET (e.g. after a backend redeploy that rotates the secret).
+let _on401: (() => void) | null = null;
+export function register401Handler(cb: () => void) {
+  _on401 = cb;
+}
+
 // NOTE: exact error response shape (e.g. { message } vs { error })
 // is unverified against real backend source; both are handled below.
 export async function apiRequest<T = any>(path: string, opts: RequestOptions = {}): Promise<T> {
@@ -87,6 +97,19 @@ export async function apiRequest<T = any>(path: string, opts: RequestOptions = {
     const message =
       (data && (data.message || data.error)) ||
       `Request failed (${res.status})`;
+
+    // If a 401 comes back on an authenticated request, the stored JWT is
+    // stale (expired, or signed with a rotated secret). Clear it and send
+    // the user to the login screen so they can get a fresh token.
+    // Skip this for auth endpoints themselves (login/signup/verify) which
+    // legitimately return 401 as a business error, not a session error.
+    if (res.status === 401 && auth && !path.startsWith("/auth/")) {
+      setToken(null);
+      store.remove("sf_current_user");
+      store.remove("sf_remember");
+      _on401?.();
+    }
+
     throw new ApiError(Array.isArray(message) ? message.join(", ") : message, res.status, data);
   }
 

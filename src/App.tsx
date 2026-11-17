@@ -13,7 +13,7 @@ import { Terms, Privacy } from "./screens/Legal";
 import { Main } from "./screens/Main";
 import { store, hydrateStore } from "./lib/store";
 import { getRemember, setRemember, logout as apiLogout, isAuthenticated } from "./lib/auth";
-import { getToken } from "./lib/api";
+import { getToken, register401Handler } from "./lib/api";
 import { COLORS } from "./lib/theme";
 import { NavState, SFUser } from "./lib/types";
 
@@ -93,6 +93,18 @@ export default function App() {
     store.remove("sf_current_user");
     pushNav({ screen: "login", user: null, subPage: null });
   };
+
+  // Register the global 401 handler once. When any authenticated API request
+  // returns 401 (stale/rotated JWT), api.ts clears the token and fires this
+  // callback, which sends the user to the login screen automatically.
+  useEffect(() => {
+    register401Handler(() => {
+      setRemember(null);
+      store.remove("sf_current_user");
+      setNavState({ ...initialNav, screen: "login" });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const deleteAccount = () => {
     // Backend deletion is performed by the caller (ProfileTab) before this
