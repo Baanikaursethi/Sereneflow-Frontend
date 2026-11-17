@@ -83,14 +83,21 @@ export const Main: React.FC<MainProps> = ({
   }, []);
 
   const playSound = useCallback(
-    (id: SoundId) => {
+    async (id: SoundId) => {
       if (soundPlaying === id) {
         stopSound();
         return;
       }
-      soundEngine.play(id);
+      // Optimistically update UI, then start playback.
+      // If playback fails (e.g. permissions, codec), revert the UI state.
       setSoundPlaying(id);
-      if (timerMins) startSoundTimer(timerMins);
+      try {
+        await soundEngine.play(id);
+        if (timerMins) startSoundTimer(timerMins);
+      } catch {
+        // Playback failed — revert so the button doesn't stay in "playing" state.
+        setSoundPlaying(null);
+      }
     },
     [soundPlaying, timerMins, stopSound, startSoundTimer]
   );

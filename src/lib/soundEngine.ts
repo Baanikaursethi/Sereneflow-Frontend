@@ -1,24 +1,35 @@
 import { Audio } from "expo-av";
 // expo-file-system SDK 19 (Expo SDK 54) moved legacy APIs to the /legacy entry.
 // cacheDirectory, writeAsStringAsync, and EncodingType are still available there.
+// NOTE: on web, cacheDirectory is null — we detect that and use data: URIs instead
+// (HTML5 Audio supports data: URIs; ExoPlayer on Android does not, hence the split).
 import * as FileSystem from "expo-file-system/legacy";
-import { getSoundWavBase64, SoundId } from "./soundSynth";
+import { getSoundWavBase64, getSoundDataUri, SoundId } from "./soundSynth";
+import { Platform } from "react-native";
 
 // ============================================================
 // SOUND ENGINE — Expo-compatible ambient audio player.
 //
-// Android's ExoPlayer (used by expo-av under the hood) does NOT
-// support data: URIs. The fix is to write the base64 WAV to a
-// temp file in expo-file-system's cacheDirectory and pass a
-// file:// URI to Audio.Sound.createAsync — which ExoPlayer handles
-// correctly. The temp file is written once per sound per app
-// session (cached by SoundId so subsequent plays reuse it).
+// Platform strategy:
+//   WEB   — data: URI passed directly to Audio.Sound.createAsync.
+//           HTML5 Audio supports data: URIs natively; no file I/O needed.
+//   NATIVE — Base64 WAV written to FileSystem.cacheDirectory as a
+//           temp file:// URI, which ExoPlayer (Android) requires.
+//
+// Android's ExoPlayer does NOT support data: URIs. The file is
+// written once per sound per app session (cached by SoundId).
 // ============================================================
 
-// Cache of already-written temp file URIs (file:// paths)
+// Cache of already-written native temp file URIs (file:// paths)
 const fileUriCache = new Map<SoundId, string>();
 
-async function getSoundFileUri(id: SoundId): Promise<string> {
+async function getSoundUri(id: SoundId): Promise<string> {
+  // On web, use data: URI — no file system needed, HTML5 Audio handles it.
+  if (Platform.OS === "web" || !FileSystem.cacheDirectory) {
+    return getSoundDataUri(id);
+  }
+
+  // On native, write once to cacheDirectory and reuse the file:// URI.
   if (fileUriCache.has(id)) return fileUriCache.get(id)!;
   const base64 = getSoundWavBase64(id);
   const path = `${FileSystem.cacheDirectory}sf_sound_${id}.wav`;
@@ -47,8 +58,8 @@ class SoundEngine {
   async play(id: SoundId) {
     await this.stop();
     await this.ensureAudioMode();
-    // Write WAV to cache dir first so ExoPlayer gets a file:// URI
-    const uri = await getSoundFileUri(id);
+    // Platform-aware URI: data: on web, file:// on native
+    const uri = await getSoundUri(id);
     const { sound } = await Audio.Sound.createAsync(
       { uri },
       { isLooping: true, volume: this.volume, shouldPlay: true }
